@@ -238,6 +238,7 @@ function Invoke-Cleanup {
 #  [3] Alles rueckgaengig
 # ------------------------------------------------------------
 function Invoke-Undo {
+    if (Test-Path $TurboFile) { Invoke-TurboOff }
     if (-not (Test-Path $BackupFile)) { Warn "Keine Sicherung gefunden - es gibt nichts rueckgaengig zu machen."; return }
     $backup = Get-Content $BackupFile -Raw | ConvertFrom-Json
 
@@ -1147,6 +1148,109 @@ function Invoke-AutoOptimize {
     }
     Log "`n  FERTIG! Bitte den PC neu starten, damit alles wirkt." Yellow
     Log "  Tipp: Miss deine FPS vorher und nachher auf der Seite 'FPS-Test'." DarkGreen
+}
+
+# ------------------------------------------------------------
+#  Turbo (v3.1) - zusaetzliche FPS-Einstellungen, komplett umkehrbar
+# ------------------------------------------------------------
+$TurboFile = Join-Path $BackupDir "turbo.json"
+$HvciKey   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
+$FsoKey    = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+
+function Test-Turbo { return (Test-Path $TurboFile) }
+
+function Get-HvciState {
+    $s = [ordered]@{ Running = $false; Configured = $false; Locked = $false }
+    try {
+        $dg = Get-CimInstance -Namespace "root\Microsoft\Windows\DeviceGuard" -ClassName Win32_DeviceGuard -ErrorAction Stop
+        if (@($dg.SecurityServicesRunning) -contains 2) { $s.Running = $true }
+    } catch {}
+    $r = Get-RegState $HvciKey "Enabled"
+    if ($r.Exists -and $r.Value -eq 1) { $s.Configured = $true }
+    $l = Get-RegState $HvciKey "Locked"
+    if ($l.Exists -and $l.Value -eq 1) { $s.Locked = $true }
+    return $s
+}
+
+function Get-TurboTweaks([bool]$Hvci) {
+    $list = @()
+    $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+
+    # Optimierungen fuer Spiele im Fenstermodus (vorhandene Werte behalten)
+    $dx = Get-RegState $GpuPrefKey "DirectXUserGlobalSettings"
+    $parts = [ordered]@{}
+    if ($dx.Exists -and $dx.Value) {
+        foreach ($p in ("$($dx.Value)" -split ";")) { if ($p -match "^(.+?)=(.*)$") { $parts[$Matches[1]] = $Matches[2] } }
+    }
+    $parts["SwapEffectUpgradeEnable"] = "1"
+    $val = (($parts.Keys | ForEach-Object { "$_=" + $parts[$_] }) -join ";") + ";"
+    $list += @{ Path = $GpuPrefKey; Name = "DirectXUserGlobalSettings"; Value = $val; Type = "String"; Info = "Optimierungen fuer Spiele im Fenstermodus an" }
+
+    # Vollbildoptimierung fuer GTA / FiveM aus
+    foreach ($exe in Get-GameExePaths) {
+        $cur = Get-RegState $FsoKey $exe
+        if ($cur.Exists -and "$($cur.Value)" -match "DISABLEDXMAXIMIZEDWINDOWEDMODE") { continue }
+        $v = if ($cur.Exists -and $cur.Value) { "$($cur.Value) DISABLEDXMAXIMIZEDWINDOWEDMODE" } else { "~ DISABLEDXMAXIMIZEDWINDOWEDMODE" }
+        if ($v -notmatch "^~") { $v = "~ " + $v }
+        $list += @{ Path = $FsoKey; Name = $exe; Value = $v; Type = "String"; Info = "Vollbildoptimierung aus: " + (Split-Path $exe -Leaf) }
+    }
+
+    # Windows-Effekte auf Leistung
+    $list += @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"; Name = "VisualFXSetting"; Value = 3; Type = "DWord"; Info = "Visuelle Effekte: benutzerdefiniert" }
+    $list += @{ Path = "HKCU:\Control Panel\Desktop\WindowMetrics"; Name = "MinAnimate"; Value = "0"; Type = "String"; Info = "Fenster-Animationen aus" }
+    $list += @{ Path = $adv; Name = "TaskbarAnimations"; Value = 0; Type = "DWord"; Info = "Taskleisten-Animationen aus" }
+    $list += @{ Path = $adv; Name = "ListviewAlphaSelect"; Value = 0; Type = "DWord"; Info = "Transparente Auswahl aus" }
+    $list += @{ Path = $adv; Name = "ListviewShadow"; Value = 0; Type = "DWord"; Info = "Schatten unter Symbolen aus" }
+    $list += @{ Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"; Name = "EnableTransparency"; Value = 0; Type = "DWord"; Info = "Transparenz-Effekte aus" }
+    $list += @{ Path = "HKCU:\Software\Microsoft\Windows\DWM"; Name = "EnableAeroPeek"; Value = 0; Type = "DWord"; Info = "Aero Peek aus" }
+
+    if ($Hvci) {
+        $list += @{ Path = $HvciKey; Name = "Enabled"; Value = 0; Type = "DWord"; Info = "Speicher-Integritaet aus (wirkt nach Neustart)" }
+    }
+    return $list
+}
+
+function Invoke-TurboOn([bool]$Hvci = $false) {
+    Log "`n== Turbo einschalten ==" Green
+    if ($Hvci) {
+        $h = Get-HvciState
+        if ($h.Locked) { Warn "Speicher-Integritaet ist per UEFI gesperrt und kann hier nicht ausgeschaltet werden."; $Hvci = $false }
+        elseif (-not $h.Running -and -not $h.Configured) { Ok "Speicher-Integritaet ist bei dir schon aus."; $Hvci = $false }
+    }
+    $old = @()
+    if (Test-Path $TurboFile) {
+        try { foreach ($o in (Get-Content $TurboFile -Raw | ConvertFrom-Json).Registry) { $old += $o } } catch {}
+    }
+    $saved = @{}
+    foreach ($o in $old) { $saved["$($o.Path)|$($o.Name)"] = $true }
+    $backup = @() + $old
+    foreach ($t in (Get-TurboTweaks $Hvci)) {
+        try {
+            if (-not $saved.ContainsKey("$($t.Path)|$($t.Name)")) { $backup += [pscustomobject](Get-RegState $t.Path $t.Name) }
+            Set-Reg $t.Path $t.Name $t.Value $t.Type
+            Ok $t.Info
+        } catch { Bad ($t.Info + ": " + $_.Exception.Message) }
+    }
+    $hv = @($backup | Where-Object { $_.Path -eq $HvciKey }).Count -gt 0
+    [pscustomobject]@{ Created = (Get-Date).ToString("dd.MM.yyyy HH:mm"); Hvci = $hv; Registry = $backup } |
+        ConvertTo-Json -Depth 4 | Set-Content -Path $TurboFile -Encoding UTF8
+    Log "`nTurbo ist an. Bitte den PC neu starten, damit alles wirkt." Green
+    Log "Tipp: Danach den FPS-Test machen und mit vorher vergleichen." Green
+}
+
+function Invoke-TurboOff {
+    if (-not (Test-Path $TurboFile)) { Warn "Turbo ist nicht aktiv."; return }
+    Log "`n== Turbo ausschalten ==" Green
+    $t = Get-Content $TurboFile -Raw | ConvertFrom-Json
+    foreach ($r in $t.Registry) {
+        try {
+            if ($r.Exists) { Set-Reg $r.Path $r.Name $r.Value $r.Kind }
+            elseif (Test-Path $r.Path) { Remove-ItemProperty -Path $r.Path -Name $r.Name -ErrorAction SilentlyContinue }
+            Ok ("wiederhergestellt: " + (Split-Path $r.Name -Leaf))
+        } catch { Bad ($r.Name + ": " + $_.Exception.Message) }
+    }
+    Remove-Item $TurboFile -Force -ErrorAction SilentlyContinue
+    Log "`nTurbo ist aus. Bitte den PC neu starten." Green
 }
 
 if ($NoMenu) { return }
