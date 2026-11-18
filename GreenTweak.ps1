@@ -1076,6 +1076,79 @@ function Invoke-GameModeOff {
     Log "  Gaming-Modus ist AUS. Alles wie vorher." Yellow
 }
 
+# ============================================================
+#  v2.8: 1-Klick-Optimierung (erkennt die Hardware selbst)
+# ============================================================
+function Get-HardwareInfo {
+    $hw = [ordered]@{ Gpu = "Unbekannt"; Vendor = "Unbekannt"; Dedicated = $false; Laptop = $false; OnBattery = $false
+                      RamGB = 0; RamType = "RAM"; RamSpeed = 0; XmpOff = $false; Cpu = ""; Cores = 0; DriverDays = -1 }
+    try {
+        $gpus = @(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch "Microsoft|Basic|Virtual|Parsec|Remote|Meta" })
+        $dg = $gpus | Where-Object { $_.Name -match "NVIDIA|GeForce|Quadro|Radeon RX|Radeon Pro|Arc\(TM\) [AB]\d|Arc [AB]\d" } | Select-Object -First 1
+        $g = if ($dg) { $dg } else { $gpus | Select-Object -First 1 }
+        if ($g) {
+            $hw.Gpu = $g.Name.Trim()
+            $hw.Vendor = if ($g.Name -match "NVIDIA|GeForce|Quadro") { "NVIDIA" } elseif ($g.Name -match "AMD|Radeon") { "AMD" } elseif ($g.Name -match "Intel") { "Intel" } else { "Unbekannt" }
+            $hw.Dedicated = [bool]$dg
+            try { $hw.DriverDays = [int]((Get-Date) - $g.DriverDate).TotalDays } catch {}
+        }
+    } catch {}
+    try {
+        $ch = @((Get-CimInstance Win32_SystemEnclosure).ChassisTypes)
+        $bat = @(Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue)
+        $hw.Laptop = ($bat.Count -gt 0) -or (@($ch | Where-Object { @(8,9,10,11,12,14,18,21,30,31,32) -contains $_ }).Count -gt 0)
+        if ($bat.Count -gt 0) { $hw.OnBattery = ($bat[0].BatteryStatus -eq 1) }
+    } catch {}
+    try {
+        $mem = @(Get-CimInstance Win32_PhysicalMemory)
+        $hw.RamGB = [math]::Round(($mem | Measure-Object Capacity -Sum).Sum / 1GB)
+        $hw.RamSpeed = ($mem | Measure-Object ConfiguredClockSpeed -Minimum).Minimum
+        $hw.RamType = switch ($mem[0].SMBIOSMemoryType) { 26 { "DDR4" } 34 { "DDR5" } default { "RAM" } }
+        $hw.XmpOff = ($hw.RamType -eq "DDR4" -and $hw.RamSpeed -le 2666) -or ($hw.RamType -eq "DDR5" -and $hw.RamSpeed -le 4800)
+    } catch {}
+    try {
+        $c = Get-CimInstance Win32_Processor | Select-Object -First 1
+        $hw.Cpu = $c.Name.Trim(); $hw.Cores = $c.NumberOfCores
+    } catch {}
+    return [pscustomobject]$hw
+}
+
+function Get-AutoPlan($hw) {
+    $weak = (-not $hw.Dedicated) -or ($hw.RamGB -gt 0 -and $hw.RamGB -le 8)
+    $plan = [ordered]@{ Profile = $null; Debloat = $false; Weak = $weak; Steps = @(); Tips = @() }
+    if (-not (Test-Path $BackupFile)) {
+        $plan.Profile = if ($weak) { "Max FPS" } else { "Gaming" }
+        if ($weak) { $plan.Steps += "Profil 'Max FPS' (schwaechere Hardware: auch GTA/FiveM-Grafik auf FPS)" }
+        else       { $plan.Steps += "Profil 'Gaming' (starke Hardware: Grafik bleibt schoen, System wird schneller)" }
+    } else { $plan.Tips += "Ein Profil ist schon aktiv - wird nicht nochmal angewendet." }
+    if (-not (Test-Path $DebloatBackupFile)) { $plan.Debloat = $true; $plan.Steps += "Windows entschlacken (Telemetrie, Werbung, unnoetige Dienste)" }
+    $plan.Steps += "Temporaere Dateien und FiveM-Cache aufraeumen"
+    $plan.Steps += "Hintergrund-Check (FPS-Fresser finden)"
+    if ($hw.OnBattery) { $plan.Tips += "Laptop laeuft auf Akku - zum Zocken unbedingt das Ladekabel einstecken!" }
+    if ($hw.XmpOff)    { $plan.Tips += "RAM laeuft nur mit $($hw.RamSpeed) MT/s - XMP/EXPO im BIOS einschalten bringt oft viele FPS." }
+    if ($hw.DriverDays -gt 120) { $plan.Tips += "Grafiktreiber ist $($hw.DriverDays) Tage alt - Update beim Hersteller ($($hw.Vendor)) holen." }
+    if ($hw.RamGB -gt 0 -and $hw.RamGB -lt 16) { $plan.Tips += "Nur $($hw.RamGB) GB RAM - fuer FiveM sind 16 GB empfohlen. Browser beim Zocken schliessen." }
+    return [pscustomobject]$plan
+}
+
+function Invoke-AutoOptimize {
+    Log "`n################ 1-KLICK-OPTIMIERUNG ################" Green
+    $hw = Get-HardwareInfo
+    Log ("  Grafikkarte: " + $hw.Gpu + $(if ($hw.Dedicated) { " (dediziert)" } else { " (integriert)" })) DarkGreen
+    Log ("  CPU: " + $hw.Cpu + " | RAM: " + $hw.RamGB + " GB " + $hw.RamType + " | " + $(if ($hw.Laptop) { "Laptop" } else { "Desktop-PC" })) DarkGreen
+    $plan = Get-AutoPlan $hw
+    if ($plan.Profile) { Invoke-ApplyProfile $plan.Profile }
+    if ($plan.Debloat) { Invoke-Debloat }
+    Invoke-Cleanup
+    Invoke-BackgroundCheck
+    if ($plan.Tips.Count -gt 0) {
+        Log "`n== Tipps fuer deinen PC ==" Green
+        foreach ($t in $plan.Tips) { Warn $t }
+    }
+    Log "`n  FERTIG! Bitte den PC neu starten, damit alles wirkt." Yellow
+    Log "  Tipp: Miss deine FPS vorher und nachher auf der Seite 'FPS-Test'." DarkGreen
+}
+
 if ($NoMenu) { return }
 
 # ------------------------------------------------------------
