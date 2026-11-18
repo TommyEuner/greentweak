@@ -198,6 +198,15 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
             <TextBlock x:Name="CardGpuSub" Text="" Style="{StaticResource Small}"/>
           </StackPanel></Border>
         </UniformGrid>
+        <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14" Margin="0,4,12,12">
+          <DockPanel>
+            <Button x:Name="AutoOpt" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="1-Klick-Optimierung starten" Width="280" VerticalAlignment="Center"/>
+            <StackPanel Margin="0,0,16,0">
+              <TextBlock Text="1-Klick-Optimierung (empfohlen)" Style="{StaticResource CardTitle}" Foreground="#39FF14"/>
+              <TextBlock Text="GreenTweak erkennt deine Hardware (Grafikkarte, RAM, Laptop oder PC) und wählt automatisch die passenden Tweaks. Alles wird vorher gesichert." Style="{StaticResource Small}" Margin="0,6,0,0"/>
+            </StackPanel>
+          </DockPanel>
+        </Border>
         <TextBlock Text="Schnellaktionen" Style="{StaticResource CardTitle}" Margin="0,8,0,10"/>
         <UniformGrid Columns="4">
           <Button x:Name="QuickMax"     Style="{StaticResource Primary}" Content="Max FPS anwenden"   Margin="0,0,12,0"/>
@@ -619,6 +628,24 @@ function Fill-AutoList {
     Log ("  Autostart: " + $items.Count + " Einträge, davon " + $on + " aktiv.")
 }
 (C "AutoRefresh").Add_Click({ Fill-AutoList })
+
+# --- 1-Klick-Optimierung ---
+(C "AutoOpt").Add_Click({
+    $win.Cursor = [Windows.Input.Cursors]::Wait
+    $hw = Get-HardwareInfo
+    $plan = Get-AutoPlan $hw
+    $win.Cursor = $null
+    $gpuTxt = $hw.Gpu + $(if ($hw.Dedicated) { " (eigene Grafikkarte)" } else { " (im Prozessor)" })
+    $pcTxt = if ($hw.Laptop) { "Laptop" } else { "Desktop-PC" }
+    $steps = ($plan.Steps | ForEach-Object { "- " + $_ }) -join "`n"
+    $msg = "Erkannt:`n- Grafikkarte: $gpuTxt`n- RAM: $($hw.RamGB) GB $($hw.RamType)`n- $pcTxt`n`nGreenTweak macht jetzt:`n$steps`n`nAlles wird vorher gesichert und ist mit 'Alles rückgängig' zurückzusetzen. Starten?"
+    $r = [Windows.MessageBox]::Show($msg, "GreenTweak - 1-Klick-Optimierung", "YesNo", "Question")
+    if ($r -ne "Yes") { return }
+    Run { Invoke-AutoOptimize }
+    $r2 = [Windows.MessageBox]::Show("Fertig! Damit alles wirkt, muss der PC neu starten.`n`nJetzt neu starten? (Vorher alles speichern!)", "GreenTweak", "YesNo", "Question")
+    if ($r2 -eq "Yes") { Restart-Computer -Force }
+})
+
 
 # --- Gaming-Modus ---
 (C "QuickGame").Add_Click({
