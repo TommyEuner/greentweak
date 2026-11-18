@@ -29,6 +29,7 @@ $AppDir = Split-Path -Parent $PSCommandPath
 . (Join-Path $AppDir "GreenTweak.ps1") -NoMenu
 
 $DiscordLink = "https://discord.gg/KMZKewWQTp"
+$FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
 
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -198,8 +199,9 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
           </StackPanel></Border>
         </UniformGrid>
         <TextBlock Text="Schnellaktionen" Style="{StaticResource CardTitle}" Margin="0,8,0,10"/>
-        <UniformGrid Columns="3">
+        <UniformGrid Columns="4">
           <Button x:Name="QuickMax"     Style="{StaticResource Primary}" Content="Max FPS anwenden"   Margin="0,0,12,0"/>
+          <Button x:Name="QuickGame"    Style="{StaticResource Btn}"     Content="Gaming-Modus AN"    Margin="0,0,12,0"/>
           <Button x:Name="QuickUndo"    Style="{StaticResource Btn}"     Content="Alles rückgängig"   Margin="0,0,12,0"/>
           <Button x:Name="QuickRestart" Style="{StaticResource Warn}"    Content="PC neu starten"     Margin="0,0,12,0"/>
         </UniformGrid>
@@ -260,7 +262,8 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
         </UniformGrid>
         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
           <Button x:Name="BgCheck" Style="{StaticResource Btn}" Content="Hintergrund-Check (FPS-Fresser finden)" Width="330" Margin="0,0,12,0"/>
-          <Button x:Name="FpsHistory" Style="{StaticResource Btn}" Content="Verlauf anzeigen" Width="200"/>
+          <Button x:Name="FpsHistory" Style="{StaticResource Btn}" Content="Verlauf anzeigen" Width="200" Margin="0,0,12,0"/>
+          <Button x:Name="FpsShare" Style="{StaticResource Primary}" Content="Ergebnis im Discord teilen" Width="260"/>
         </StackPanel>
       </StackPanel>
 
@@ -478,12 +481,20 @@ function Update-Dashboard {
     } catch {}
 }
 
+# --- Gaming-Modus-Button ---
+function Update-GameModeButton {
+    $b = C "QuickGame"
+    if (Test-GameMode) { $b.Content = "Gaming-Modus AUS"; $b.Background = $Bc.ConvertFromString("#1FB30E"); $b.Foreground = $Bc.ConvertFromString("#03140A") }
+    else { $b.Content = "Gaming-Modus AN"; $b.Background = $Bc.ConvertFromString("#16241A"); $b.Foreground = $Bc.ConvertFromString("#E3F5E5") }
+}
+
 # --- Aktionen ---
 function Run($block) {
     $win.Cursor = [Windows.Input.Cursors]::Wait
     try { & $block } catch { Log ("  [X] Fehler: " + $_.Exception.Message) }
     $win.Cursor = $null
     Update-Dashboard
+    Update-GameModeButton
 }
 (C "QuickMax").Add_Click({ Run { Invoke-ApplyProfile "Max FPS" } })
 (C "ProfLight").Add_Click({ Run { Invoke-ApplyProfile "Leicht" } })
@@ -609,6 +620,38 @@ function Fill-AutoList {
 }
 (C "AutoRefresh").Add_Click({ Fill-AutoList })
 
+# --- Gaming-Modus ---
+(C "QuickGame").Add_Click({
+    if (Test-GameMode) { Run { Invoke-GameModeOff }; return }
+    $t = @(Get-GameModeTargets | ForEach-Object { $_.ProcessName })
+    $msg = "Gaming-Modus einschalten?`n`n- Energieplan auf Höchstleistung`n- Windows-Benachrichtigungen pausieren"
+    if ($t.Count -gt 0) { $msg += "`n- Diese Programme schließen: " + ($t -join ", ") }
+    $msg += "`n`nNach dem Zocken einfach wieder auf 'Gaming-Modus AUS' klicken."
+    $r = [Windows.MessageBox]::Show($msg, "GreenTweak", "YesNo", "Question")
+    if ($r -eq "Yes") { Run { Invoke-GameModeOn } }
+})
+
+# --- FPS-Ergebnis teilen ---
+(C "FpsShare").Add_Click({
+    $h = @(Get-FpsHistory)
+    if ($h.Count -eq 0) { [Windows.MessageBox]::Show("Mach zuerst eine FPS-Messung.", "GreenTweak") | Out-Null; return }
+    $last = $h | Select-Object -Last 1
+    $before = $h | Where-Object { -not $_.Tweak -and $_.Game -eq $last.Game } | Select-Object -First 1
+    $game = ($last.Game -replace "FiveM_b\d+_GTAProcess|FiveM_GTAProcess", "FiveM" -replace "-Win64-Shipping|Client", "")
+    $txt = "**GreenTweak FPS-Test** ($game)`n"
+    if ($last.Tweak -and $before -and $before.Avg -gt 0) {
+        $pct = [math]::Round(($last.Avg - $before.Avg) / $before.Avg * 100)
+        $txt += "Ohne Tweak: $($before.Avg) FPS -> Mit Tweak: $($last.Avg) FPS (" + $(if ($pct -ge 0) { "+" } else { "" }) + "$pct %)`n"
+        $txt += "1% Low: $($before.Low1) -> $($last.Low1) FPS"
+    } else {
+        $txt += "$($last.Avg) FPS im Schnitt, 1% Low: $($last.Low1) FPS"
+    }
+    [Windows.Clipboard]::SetText($txt)
+    [Windows.MessageBox]::Show("Dein Ergebnis ist kopiert:`n`n$txt`n`nDiscord öffnet sich jetzt. Einfach im Kanal mit Strg + V einfügen und senden.", "GreenTweak") | Out-Null
+    Start-Process $FpsChannelUrl
+})
+
+
 # --- Neu in dieser Version ---
 $win.Add_ContentRendered({
     try {
@@ -631,6 +674,7 @@ $win.Add_ContentRendered({
 (C "InfoText").Text = "Version: $Version`nSicherung und Protokoll: $BackupDir`nDiscord: $DiscordLink`n`nAlle Änderungen werden vorher gesichert. Mit 'Alles rückgängig' ist dein PC wieder wie vorher."
 
 Show-Page "NavDash"
+Update-GameModeButton
 Log "GreenTweak v$Version bereit. Tipp: Starte zuerst den Systemcheck."
 try { [GT.Win]::ShowWindow([GT.Win]::GetConsoleWindow(), 0) | Out-Null } catch {}
 [void]$win.ShowDialog()
