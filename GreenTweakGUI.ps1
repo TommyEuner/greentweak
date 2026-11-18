@@ -155,7 +155,8 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           <Button x:Name="NavProf"   Style="{StaticResource Nav}" Content="Profile"/>
           <Button x:Name="NavDebloat" Style="{StaticResource Nav}" Content="Windows entschlacken"/>
           <TextBlock Text="SPIELE" Foreground="#4F6B55" FontSize="11" FontWeight="Bold" Margin="6,14,0,4"/>
-          <Button x:Name="NavFps"    Style="{StaticResource Nav}" Content="FPS-Test (neu)"/>
+          <Button x:Name="NavFps"    Style="{StaticResource Nav}" Content="FPS-Test"/>
+          <Button x:Name="NavTurbo"  Style="{StaticResource Nav}" Content="Turbo (neu)"/>
           <Button x:Name="NavFiveM"  Style="{StaticResource Nav}" Content="FiveM &amp; GTA"/>
           <Button x:Name="NavGames"  Style="{StaticResource Nav}" Content="Weitere Spiele"/>
           <Button x:Name="NavNet"    Style="{StaticResource Nav}" Content="Netzwerk"/>
@@ -283,6 +284,25 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
             <Button x:Name="FpsBoard" Style="{StaticResource Btn}" Content="Rangliste ansehen" Width="220"/>
           </StackPanel>
         </StackPanel></Border>
+      </StackPanel>
+
+      <!-- Turbo -->
+      <StackPanel x:Name="PageTurbo" Grid.Row="0" Visibility="Collapsed">
+        <TextBlock Text="Turbo" Style="{StaticResource H1}"/>
+        <TextBlock Text="Zusätzliche Einstellungen für mehr FPS und ruhigere Frametimes. Alles wird gesichert und ist mit einem Klick wieder rückgängig." Style="{StaticResource Sub}"/>
+        <Border Style="{StaticResource CardBorder}" Margin="0,0,12,12"><StackPanel>
+          <TextBlock Text="Das macht Turbo" Style="{StaticResource CardTitle}" Foreground="#39FF14"/>
+          <TextBlock Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,0" Text="• Optimierungen für Spiele im Fenstermodus an (besser für FiveM im randlosen Fenster)&#10;• Vollbildoptimierung für GTA und FiveM aus (stabilere Frametimes)&#10;• Windows-Effekte auf Leistung: Animationen, Transparenz und Schatten aus"/>
+        </StackPanel></Border>
+        <Border Style="{StaticResource CardBorder}" BorderBrush="#FFB347" Margin="0,0,12,12"><StackPanel>
+          <CheckBox x:Name="TurboHvci" Foreground="#FFB347" FontSize="14" FontWeight="Bold" Content="Speicher-Integrität ausschalten (bringt am meisten)"/>
+          <TextBlock x:Name="TurboHvciInfo" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+        </StackPanel></Border>
+        <StackPanel Orientation="Horizontal">
+          <Button x:Name="TurboOn" Style="{StaticResource Primary}" Content="Turbo einschalten" Width="260" Margin="0,0,12,0"/>
+          <Button x:Name="TurboOff" Style="{StaticResource Btn}" Content="Turbo ausschalten" Width="220"/>
+        </StackPanel>
+        <TextBlock x:Name="TurboState" Style="{StaticResource Small}" Margin="0,12,0,0"/>
       </StackPanel>
 
       <!-- Autostart -->
@@ -456,7 +476,7 @@ function Log($text, $color = "DarkGreen") {
 }
 
 # --- Seiten-Navigation ---
-$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavFps="PageFps"; NavAuto="PageAuto"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
+$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavFps="PageFps"; NavTurbo="PageTurbo"; NavAuto="PageAuto"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
 function Show-Page($nav) {
     foreach ($k in $pages.Keys) {
         (C $pages[$k]).Visibility = if ($k -eq $nav) { "Visible" } else { "Collapsed" }
@@ -464,6 +484,7 @@ function Show-Page($nav) {
     }
     if ($nav -eq "NavDash") { Update-Dashboard }
     if ($nav -eq "NavFps")  { Update-FpsCards }
+    if ($nav -eq "NavTurbo") { Update-TurboPage }
     if ($nav -eq "NavAuto") { Fill-AutoList }
 }
 foreach ($k in @($pages.Keys)) { (C $k).Add_Click({ Show-Page $this.Name }) }
@@ -889,6 +910,49 @@ function Get-BoardGame($proc) {
 })
 
 
+# --- Turbo (v3.1) ---
+function Update-TurboPage {
+    try {
+        $h = Get-HvciState
+        $cb = C "TurboHvci"
+        $txt = "Die Speicher-Integrität (Kernisolierung) schützt Windows zusätzlich vor Schadsoftware, kostet in Spielen aber oft 5-10 % FPS. " +
+               "Ausgeschaltet ist dein PC etwas weniger geschützt. Wirkt erst nach einem Neustart. 'Turbo ausschalten' stellt sie wieder her."
+        if ($h.Locked) { $txt += "`nBei dir ist sie per UEFI gesperrt und kann nicht ausgeschaltet werden."; $cb.IsChecked = $false; $cb.IsEnabled = $false }
+        elseif (-not $h.Running -and -not $h.Configured) { $txt += "`nBei dir ist sie schon aus."; $cb.IsChecked = $false; $cb.IsEnabled = $false }
+        else { $txt += "`nStatus bei dir: AN"; $cb.IsEnabled = $true }
+        (C "TurboHvciInfo").Text = $txt
+        $st = C "TurboState"
+        if (Test-Turbo) {
+            $b = Get-Content $TurboFile -Raw | ConvertFrom-Json
+            $st.Text = "Turbo ist AKTIV (seit $($b.Created))."
+            $st.Foreground = $Bc.ConvertFromString("#39FF14")
+        } else {
+            $st.Text = "Turbo ist aus."
+            $st.Foreground = $Bc.ConvertFromString("#7E9A83")
+        }
+    } catch {}
+}
+
+(C "TurboOn").Add_Click({
+    $cb = C "TurboHvci"
+    $hv = ([bool]$cb.IsChecked) -and $cb.IsEnabled
+    $msg = "Turbo jetzt einschalten?`n`nVorher wird ein Wiederherstellungspunkt erstellt. Mit 'Turbo ausschalten' ist alles wieder wie vorher."
+    if ($hv) { $msg += "`n`nACHTUNG: Die Speicher-Integrität wird ausgeschaltet. Dein PC ist dann etwas weniger gegen Schadsoftware geschützt." }
+    $r = [Windows.MessageBox]::Show($msg, "GreenTweak - Turbo", "YesNo", $(if ($hv) { "Warning" } else { "Question" }))
+    if ($r -ne "Yes") { return }
+    Run { New-GTRestorePoint "Vor GreenTweak Turbo"; Invoke-TurboOn $hv }
+    Update-TurboPage
+    $q = [Windows.MessageBox]::Show("Turbo ist an. Damit alles wirkt, muss der PC neu starten.`n`nJetzt neu starten? Speichere vorher alles!", "GreenTweak", "YesNo", "Question")
+    if ($q -eq "Yes") { Restart-Computer -Force }
+})
+(C "TurboOff").Add_Click({
+    if (-not (Test-Turbo)) { [Windows.MessageBox]::Show("Turbo ist gerade nicht aktiv.", "GreenTweak") | Out-Null; return }
+    Run { Invoke-TurboOff }
+    Update-TurboPage
+    $q = [Windows.MessageBox]::Show("Turbo ist aus. Damit alles wieder wie vorher ist, muss der PC neu starten.`n`nJetzt neu starten?", "GreenTweak", "YesNo", "Question")
+    if ($q -eq "Yes") { Restart-Computer -Force }
+})
+
 # --- Neu in dieser Version ---
 $win.Add_ContentRendered({
     try {
@@ -897,9 +961,9 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- Booster-Login mit Discord`n" +
-                   "- FPS-Rangliste: Lade deine Messung hoch und vergleiche dich mit anderen Boostern`n" +
-                   "- Rangliste auch auf der Website`n`n" +
+                   "- Turbo: Neue Seite mit zusätzlichen Einstellungen für mehr FPS`n" +
+                   "- Optional: Speicher-Integrität ausschalten (bringt oft 5-10 % FPS)`n" +
+                   "- Tipp: Vorher und nachher den FPS-Test machen!`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
