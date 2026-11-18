@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GreenTweak – Mehr FPS für GTA V &amp; FiveM</title>
+<meta name="description" content="GreenTweak ist das FPS-Tool der Green Community: 1-Klick-Optimierung, FPS-Test, Gaming-Modus und mehr für GTA V und FiveM. Exklusiv für Server-Booster.">
+<meta property="og:title" content="GreenTweak – Mehr FPS für GTA V & FiveM">
+<meta property="og:description" content="Das FPS-Tool der Green Community. Exklusiv für Server-Booster.">
+<meta name="theme-color" content="#050a06">
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050a06; --bg2:#08110a; --card:#0c160f; --line:#1a2b1e; --line2:#24402b;
+  --green:#39ff14; --green2:#1fb30e; --text:#e6f5e8; --muted:#86a38b; --dim:#4f6b55;
+  --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+html,body{overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:Montserrat,sans-serif;line-height:1.1;letter-spacing:-.02em}
+.mono{font-family:"JetBrains Mono",monospace}
+
+/* background */
+.grid-bg{position:fixed;inset:0;z-index:-2;
+  background-image:linear-gradient(var(--bg2) 1px,transparent 1px),linear-gradient(90deg,var(--bg2) 1px,transparent 1px);
+  background-size:56px 56px;mask-image:radial-gradient(ellipse at 50% 0%,#000 30%,transparent 75%)}
+.glow{position:absolute;z-index:-1;border-radius:50%;filter:blur(90px);opacity:.35;pointer-events:none}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(5,10,6,.72);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
+.brand{display:flex;align-items:center;gap:10px;font-family:Montserrat;font-weight:900;font-size:20px;color:var(--green);letter-spacing:.02em}
+.brand img{width:36px;height:36px}
+.links{display:flex;gap:28px;align-items:center;font-size:15px;color:var(--muted)}
+.links a:hover{color:var(--text)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:10px;font-weight:600;border-radius:12px;padding:13px 22px;transition:transform .15s,box-shadow .2s,background .2s;cursor:pointer;border:1px solid transparent;font-size:15px}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:var(--green);color:#041206;box-shadow:0 0 0 rgba(57,255,20,0)}
+.btn-primary:hover{box-shadow:0 8px 30px rgba(57,255,20,.35)}
+.btn-ghost{border-color:var(--line2);color:var(--text);background:rgba(12,22,15,.6)}
+.btn-ghost:hover{border-color:var(--green)}
+.btn-sm{padding:9px 16px;font-size:14px}
+.menu-btn{display:none}
+
+/* hero */
+.hero{position:relative;padding:90px 0 70px;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.02fr 1.15fr;gap:56px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);background:rgba(12,22,15,.7);color:var(--muted);border-radius:999px;padding:6px 14px;font-size:13px;margin-bottom:22px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.hero h1{font-size:clamp(42px,5.2vw,66px);font-weight:900}
+.hero h1 span{color:var(--green);text-shadow:0 0 40px rgba(57,255,20,.35)}
+.hero p.lead{font-size:19px;color:var(--muted);margin:22px 0 32px;max-width:520px}
+.cta{display:flex;gap:14px;flex-wrap:wrap}
+.facts{display:flex;gap:24px;margin-top:38px;flex-wrap:wrap}
+.facts div{font-size:14px;color:var(--muted)}
+.facts b{display:block;font-family:Montserrat;font-size:20px;color:var(--text)}
+
+/* app mockup */
+.app{border-radius:18px;border:1px solid var(--line2);background:#070c08;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(57,255,20,.08),0 0 60px rgba(57,255,20,.12);overflow:hidden;transform:perspective(1400px) rotateY(-7deg) rotateX(3deg);transition:transform .5s}
+.app:hover{transform:perspective(1400px) rotateY(0) rotateX(0)}
+.titlebar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line);background:#0a120c}
+.titlebar i{width:10px;height:10px;border-radius:50%;background:#1f3324}
+.titlebar span{margin-left:8px;font-size:12px;color:var(--dim)}
+.app-body{display:grid;grid-template-columns:150px 1fr;min-height:360px}
+.side{background:#0a110c;border-right:1px solid var(--line);padding:14px 10px}
+.side .lg{display:flex;align-items:center;gap:7px;margin-bottom:14px}
+.side .lg img{width:26px}
+.side .lg b{font-family:Montserrat;font-weight:900;color:var(--green);font-size:12px}
+.side small{display:block;font-size:9px;color:var(--dim);font-weight:700;margin:10px 4px 4px;letter-spacing:.06em}
+.nav-i{font-size:11.5px;padding:6px 8px;border-radius:6px;color:#cfe6d2;margin:2px 0}
+.nav-i.on{background:#13261a;outline:1px solid var(--green)}
+.main{padding:16px}
+.main h4{font-family:Montserrat;font-size:17px}
+.main .s{font-size:11px;color:var(--muted);margin-bottom:12px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px}
+.c em{font-style:normal;font-size:9.5px;color:var(--muted)}
+.c b{display:block;font-family:Montserrat;color:var(--green);font-size:15px;margin-top:2px}
+.banner{margin-top:10px;border:1px solid var(--green);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(57,255,20,.07),transparent)}
+.banner b{color:var(--green);font-size:12px}
+.banner p{font-size:9.5px;color:var(--muted)}
+.banner span{background:var(--green2);color:#03140a;font-size:10px;font-weight:700;padding:7px 10px;border-radius:7px;white-space:nowrap}
+.log{margin-top:10px;background:#040805;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--green);min-height:96px}
+.log div{opacity:0;animation:type .01s forwards}
+@keyframes type{to{opacity:1}}
+
+/* sections */
+section{padding:90px 0;position:relative}
+.head{text-align:center;max-width:680px;margin:0 auto 54px}
+.kicker{color:var(--green);font-weight:600;font-size:14px;letter-spacing:.12em;text-transform:uppercase}
+.head h2{font-size:clamp(32px,4vw,46px);font-weight:800;margin:10px 0 14px}
+.head p{color:var(--muted);font-size:17px}
+
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.f{background:linear-gradient(180deg,var(--card),#09120b);border:1px solid var(--line);border-radius:var(--radius);padding:24px;transition:border-color .25s,transform .25s}
+.f:hover{border-color:var(--green);transform:translateY(-4px)}
+.f .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:rgba(57,255,20,.1);border:1px solid rgba(57,255,20,.3);margin-bottom:16px}
+.f .ic svg{width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.f h3{font-size:17px;margin-bottom:8px;font-weight:700}
+.f p{font-size:14px;color:var(--muted)}
+.f.big{grid-column:span 2;display:flex;gap:22px;align-items:flex-start;border-color:var(--line2)}
+.f .tag{display:inline-block;font-size:11px;font-weight:700;color:#041206;background:var(--green);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:middle;font-family:Inter}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
+.step{position:relative;border:1px solid var(--line);border-radius:var(--radius);padding:30px 26px;background:var(--card)}
+.step .n{font-family:Montserrat;font-weight:900;font-size:56px;color:transparent;-webkit-text-stroke:1.5px var(--green);opacity:.8;line-height:1}
+.step h3{font-size:20px;margin:14px 0 8px}
+.step p{color:var(--muted);font-size:15px}
+.step:not(:last-child)::after{content:"";position:absolute;right:-14px;top:50%;width:10px;height:10px;border-top:2px solid var(--green);border-right:2px solid var(--green);transform:translateY(-50%) rotate(45deg)}
+.center{text-align:center;margin-top:36px}
+
+/* trust */
+.trust{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.trust ul{list-style:none;display:grid;gap:14px}
+.trust li{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.trust li svg{flex:none;width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:2.2;margin-top:2px}
+.trust li b{display:block;font-size:15.5px}
+.trust li span{color:var(--muted);font-size:14px}
+.trust h2{font-size:clamp(30px,3.6vw,42px);font-weight:800;margin:10px 0 16px}
+.trust p{color:var(--muted);font-size:17px}
+
+/* changelog */
+.cl{max-width:760px;margin:0 auto;border:1px solid var(--line2);border-radius:var(--radius);background:#040805;overflow:hidden}
+.cl .top{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);background:#0a120c;font-size:14px;color:var(--muted)}
+.cl .top b{color:var(--green);font-family:Montserrat}
+.cl pre{padding:20px;font-family:"JetBrains Mono",monospace;font-size:13.5px;color:#bfe8c4;white-space:pre-wrap}
+
+/* faq */
+.faq{max-width:780px;margin:0 auto;display:grid;gap:12px}
+details{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:18px 22px;transition:border-color .2s}
+details[open]{border-color:var(--line2)}
+summary{cursor:pointer;font-weight:600;font-size:16px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+summary::after{content:"+";color:var(--green);font-size:22px;line-height:1;transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{color:var(--muted);margin-top:12px;font-size:15px}
+
+/* final cta */
+.final{border:1px solid var(--line2);border-radius:24px;padding:60px 40px;text-align:center;background:radial-gradient(ellipse at 50% 0%,rgba(57,255,20,.16),transparent 65%),var(--card);position:relative;overflow:hidden}
+.final h2{font-size:clamp(32px,4vw,48px);font-weight:900}
+.final p{color:var(--muted);margin:14px auto 30px;max-width:520px;font-size:17px}
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--dim);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+footer a{color:var(--muted)} footer a:hover{color:var(--green)}
+
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s,transform .7s}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:980px){
+  .hero .wrap,.trust{grid-template-columns:1fr}
+  .app{transform:none}
+  .features{grid-template-columns:1fr 1fr}
+  .f.big{grid-column:span 2}
+  .steps{grid-template-columns:1fr}
+  .step:not(:last-child)::after{display:none}
+  .links a:not(.btn){display:none}
+}
+@media (max-width:600px){
+  .features{grid-template-columns:1fr}
+  .f.big{grid-column:span 1;flex-direction:column}
+  .app-body{grid-template-columns:1fr}
+  .side{display:none}
+  .cards{grid-template-columns:1fr 1fr}
+  .hero{padding-top:56px}
+  section{padding:64px 0}
+  .final{padding:44px 22px}
+  .brand{font-size:17px}
+  .brand img{width:30px;height:30px}
+  .btn-sm{padding:8px 12px;font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<nav>
+  <div class="wrap">
+    <a href="#" class="brand"><img src="data:image/png;base64,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" alt="">GREENTWEAK</a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#so-gehts">So bekommst du ihn</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn btn-primary btn-sm" href="https://discord.gg/KMZKewWQTp" target="_blank" rel="noopener">Discord beitreten</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="glow" style="width:560px;height:560px;background:#1fb30e;top:-120px;right:-80px"></div>
+  <div class="wrap">
+    <div>
+      <div class="pill"><span class="dot"></span>Version <b id="ver" class="mono" style="color:var(--text)">2.8</b> ist live</div>
+      <h1>Mehr FPS.<br><span>Kein Ruckeln.</span></h1>
+      <p class="lead">GreenTweak ist das FPS-Tool der Green Community für GTA V und FiveM. Ein Klick, und dein PC ist aufs Zocken eingestellt – sicher, rückgängig machbar und mit automatischen Updates.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://discord.gg/KMZKewWQTp" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18 18 0 0 0-5.6 0L8.6 3a19.6 19.6 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18a19.8 19.8 0 0 0 6 3l1.3-2.1a12.8 12.8 0 0 1-2-1l.5-.4a14 14 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1L18 21a19.7 19.7 0 0 0 6-3c.5-5.1-.8-9.6-3.7-13.6ZM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></svg>
+          Jetzt im Discord holen
+        </a>
+        <a class="btn btn-ghost" href="#features">Alle Features ansehen</a>
+      </div>
+      <div class="facts">
+        <div><b>1 Klick</b>erkennt deine Hardware</div>
+        <div><b>100 %</b>rückgängig machbar</div>
+        <div><b>Updates</b>kommen automatisch</div>
+      </div>
+    </div>
+
+    <div class="app" aria-hidden="true">
+      <div class="titlebar"><i></i><i></i><i></i><span>GreenTweak</span></div>
+      <div class="app-body">
+        <div class="side">
+          <div class="lg"><img src="data:image/png;base64,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" alt=""><b>GREENTWEAK</b></div>
+          <small>ALLGEMEIN</small>
+          <div class="nav-i on">Dashboard</div><div class="nav-i">Systemcheck</div><div class="nav-i">Autostart</div><div class="nav-i">Profile</div>
+          <small>SPIELE</small>
+          <div class="nav-i">FPS-Test</div><div class="nav-i">FiveM &amp; GTA</div><div class="nav-i">Netzwerk</div>
+        </div>
+        <div class="main">
+          <h4>Dashboard</h4>
+          <div class="s">Übersicht &amp; Schnellaktionen</div>
+          <div class="cards">
+            <div class="c"><em>Status</em><b>AKTIV</b></div>
+            <div class="c"><em>RAM</em><b>16 GB</b></div>
+            <div class="c"><em>Speicher</em><b>248 GB</b></div>
+            <div class="c"><em>Grafik</em><b>RTX</b></div>
+          </div>
+          <div class="banner"><div><b>1-Klick-Optimierung</b><p>Erkennt deine Hardware und wählt die passenden Tweaks.</p></div><span>Starten</span></div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="kicker">Features</div>
+      <h2>Alles, was dein PC zum Zocken braucht</h2>
+      <p>Keine Zauberei, sondern saubere Windows- und Spiel-Einstellungen – mit Sicherung vor jeder Änderung.</p>
+    </div>
+    <div class="features">
+      <div class="f big reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+        <div><h3>1-Klick-Optimierung <span class="tag">NEU</span></h3><p>GreenTweak erkennt Grafikkarte, RAM und ob du am Laptop oder PC sitzt – und wählt selbst die passenden Tweaks. Dazu bekommst du Tipps, z. B. wenn dein RAM nicht mit voller Geschwindigkeit läuft.</p></div>
+      </div>
+      <div class="f big reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></div>
+        <div><h3>Echter FPS-Test</h3><p>Misst deine FPS im Spiel – einmal ohne und einmal mit Tweak. Durchschnitt, 1 % Low und Prozent-Unterschied, mit einem Klick im Discord teilbar.</p></div>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/></svg></div>
+        <h3>Gaming-Modus</h3><p>Vor dem Zocken an: Höchstleistung, keine Benachrichtigungen, Hintergrund-Apps zu. Danach mit einem Klick wieder aus.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <h3>FiveM &amp; GTA</h3><p>Schatten, Partikel, Gras und Effekte auf FPS – plus FiveM-Cache und Server-Cache aufräumen.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+        <h3>Windows entschlacken</h3><p>Telemetrie, Werbung, unnötige Dienste und Bloat-Apps weg. Update, Defender und Store bleiben.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a14 14 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1"/></svg></div>
+        <h3>Netzwerk</h3><p>Ehrlicher Ping-, Jitter- und Paketverlust-Test plus Netzwerk-Optimierung für weniger Verzögerung am PC.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v6M5.6 7.6A8 8 0 1 0 18.4 7.6"/></svg></div>
+        <h3>Autostart-Manager</h3><p>Alle Programme, die mit Windows starten – per Haken an oder aus. Wichtiges ist gesperrt.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></div>
+        <h3>Systemcheck</h3><p>Prüft RAM-Takt (XMP), Grafiktreiber, Energieplan und Speicherplatz – und sagt dir, was du verbessern kannst.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M6 12h4M8 10v4"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/><path d="M17.3 5H6.7a4 4 0 0 0-4 3.6L2 15a3 3 0 0 0 5.2 2.1L9 15h6l1.8 2.1A3 3 0 0 0 22 15l-.7-6.4A4 4 0 0 0 17.3 5z"/></svg></div>
+        <h3>Weitere Spiele</h3><p>Fortnite, Valorant und CS2 laufen immer auf der starken Grafikkarte. Anti-Cheat-sicher.</p>
+      </div>
+      <div class="f reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
+        <h3>Alles rückgängig</h3><p>Jede Änderung wird vorher gesichert, dazu ein Windows-Wiederherstellungspunkt. Ein Klick – alles wie vorher.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="so-gehts">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="kicker">So bekommst du ihn</div>
+      <h2>In 3 Schritten zu GreenTweak</h2>
+      <p>GreenTweak gibt es exklusiv für Booster der Green Community.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="n">01</div><h3>Discord joinen</h3><p>Tritt der Green Community bei – Chat, Talks, Promo und Support an einem Ort.</p></div>
+      <div class="step reveal"><div class="n">02</div><h3>Server boosten</h3><p>Booste den Server mit Discord Nitro. Damit schaltest du den GreenTweak-Bereich frei.</p></div>
+      <div class="step reveal"><div class="n">03</div><h3>Downloaden &amp; los</h3><p>ZIP laden, „GreenTweak Setup“ starten, fertig. Updates kommen ab dann automatisch.</p></div>
+    </div>
+    <div class="center"><a class="btn btn-primary" href="https://discord.gg/KMZKewWQTp" target="_blank" rel="noopener">Zum Discord</a></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap trust">
+    <div class="reveal">
+      <div class="kicker">Ehrlich &amp; sicher</div>
+      <h2>Kein Fake, kein Risiko</h2>
+      <p>Viele „FPS-Booster“ versprechen 300 % mehr FPS oder „0 Delay“. Das gibt es nicht. GreenTweak holt raus, was in deinem PC steckt – und mit dem FPS-Test siehst du selbst, wie viel.</p>
+    </div>
+    <ul class="reveal">
+      <li><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/></svg><div><b>Sicherung vor jeder Änderung</b><span>Plus Windows-Wiederherstellungspunkt. Alles ist rückgängig machbar.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg><div><b>Anti-Cheat-sicher</b><span>Am Spiel selbst wird nichts verändert – nur Windows- und Grafik-Einstellungen.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg><div><b>Automatische Updates</b><span>Neue Funktionen kommen beim Start von selbst – nie wieder Dateien rumschicken.</span></div></li>
+      <li><svg viewBox="0 0 24 24"><path d="M9 12h6M12 9v6"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg><div><b>Update &amp; Defender bleiben</b><span>Sicherheitsfunktionen von Windows werden nicht abgeschaltet.</span></div></li>
+    </ul>
+  </div>
+</section>
+
+<section id="neu">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="kicker">Changelog</div>
+      <h2>Was ist neu?</h2>
+    </div>
+    <div class="cl reveal">
+      <div class="top"><span>changelog.txt</span><b id="ver2">v2.8</b></div>
+      <pre id="changelog">  - NEU: 1-Klick-Optimierung – erkennt deine Hardware und wählt die passenden Tweaks
+  - NEU: Gaming-Modus – vor dem Zocken an, danach aus
+  - NEU: FPS-Ergebnis mit einem Klick im Discord teilen</pre>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="kicker">FAQ</div>
+      <h2>Häufige Fragen</h2>
+    </div>
+    <div class="faq reveal">
+      <details><summary>Wie viel mehr FPS bekomme ich?</summary><p>Das hängt komplett von deinem PC ab. Auf schwächeren PCs und Laptops ist der Unterschied meist deutlich größer als auf High-End-Rechnern. Darum gibt es den FPS-Test: Miss vorher und nachher – dann siehst du deine echte Zahl statt einer erfundenen.</p></details>
+      <details><summary>Ist GreenTweak sicher?</summary><p>Ja. Vor jeder Änderung wird eine Sicherung und ein Windows-Wiederherstellungspunkt angelegt. Mit „Alles rückgängig“ ist dein PC wieder wie vorher. Windows Update und Defender bleiben an.</p></details>
+      <details><summary>Kann ich dafür gebannt werden?</summary><p>GreenTweak verändert nichts am Spiel selbst und injiziert nichts. Es ändert nur Windows-, Energie-, Netzwerk- und Grafik-Einstellungen – genau wie du sie auch selbst in den Menüs stellen könntest.</p></details>
+      <details><summary>Was kostet GreenTweak?</summary><p>GreenTweak wird nicht verkauft. Du bekommst es als Dankeschön, wenn du die Green Community auf Discord boostest. Für einen Boost brauchst du Discord Nitro bzw. einen Server-Boost.</p></details>
+      <details><summary>Läuft das auf meinem PC?</summary><p>GreenTweak läuft auf Windows 10 und Windows 11, auf Desktop-PCs und Laptops – egal ob NVIDIA, AMD oder Intel.</p></details>
+      <details><summary>Ich habe ein Problem – wer hilft mir?</summary><p>Mach im Discord ein Ticket auf. GreenTweak zeigt bei Fehlern eine Meldung an – davon einfach einen Screenshot schicken.</p></details>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="final reveal">
+      <h2>Bereit für mehr FPS?</h2>
+      <p>Join die Green Community, booste den Server und hol dir GreenTweak.</p>
+      <a class="btn btn-primary" href="https://discord.gg/KMZKewWQTp" target="_blank" rel="noopener">Jetzt im Discord holen</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© <span id="yr">2026</span> Green Community · GreenTweak</span>
+    <span><a href="https://discord.gg/KMZKewWQTp" target="_blank" rel="noopener">Discord</a> · <a href="https://www.tiktok.com/@tommy_green999" target="_blank" rel="noopener">TikTok</a></span>
+  </div>
+</footer>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+// live version + changelog from GitHub
+(async () => {
+  try {
+    const base = 'https://raw.githubusercontent.com/TommyEuner/greentweak/main/';
+    const v = (await (await fetch(base + 'version.txt?t=' + Date.now())).text()).trim();
+    if (/^\d+(\.\d+)*$/.test(v)) { document.getElementById('ver').textContent = v; document.getElementById('ver2').textContent = 'v' + v; }
+    const cl = (await (await fetch(base + 'changelog.txt?t=' + Date.now())).text()).trim();
+    if (cl && cl.length < 3000) document.getElementById('changelog').textContent = cl;
+  } catch (e) {}
+})();
+// typing log in the app mockup
+const lines = ['GreenTweak bereit.', '== 1-Klick-Optimierung ==', '  [OK] Grafikkarte erkannt', '  [OK] Profil "Gaming" angewendet', '  [OK] Windows entschlackt', '  [OK] FiveM-Cache geleert', '  FERTIG! Bitte neu starten.'];
+const log = document.getElementById('log');
+let i = 0;
+function next() {
+  if (i >= lines.length) { setTimeout(() => { log.innerHTML = ''; i = 0; next(); }, 3500); return; }
+  const d = document.createElement('div'); d.textContent = lines[i++]; log.appendChild(d);
+  setTimeout(next, i === 1 ? 900 : 650);
+}
+next();
+// reveal on scroll
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
