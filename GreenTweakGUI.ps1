@@ -45,8 +45,8 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
     <Style x:Key="Nav" TargetType="Button">
       <Setter Property="Foreground" Value="#CFE6D2"/>
       <Setter Property="FontSize" Value="15"/>
-      <Setter Property="Height" Value="42"/>
-      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Margin" Value="0,2"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -145,20 +145,22 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
           <Button x:Name="BtnDiscord" Style="{StaticResource Btn}" Content="Discord öffnen" Height="40"/>
         </StackPanel>
 
-        <StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
           <TextBlock Text="ALLGEMEIN" Foreground="#4F6B55" FontSize="11" FontWeight="Bold" Margin="6,0,0,4"/>
           <Button x:Name="NavDash"   Style="{StaticResource Nav}" Content="Dashboard"/>
           <Button x:Name="NavCheck"  Style="{StaticResource Nav}" Content="Systemcheck"/>
+          <Button x:Name="NavAuto"   Style="{StaticResource Nav}" Content="Autostart"/>
           <Button x:Name="NavProf"   Style="{StaticResource Nav}" Content="Profile"/>
           <Button x:Name="NavDebloat" Style="{StaticResource Nav}" Content="Windows entschlacken"/>
           <TextBlock Text="SPIELE" Foreground="#4F6B55" FontSize="11" FontWeight="Bold" Margin="6,14,0,4"/>
+          <Button x:Name="NavFps"    Style="{StaticResource Nav}" Content="FPS-Test (neu)"/>
           <Button x:Name="NavFiveM"  Style="{StaticResource Nav}" Content="FiveM &amp; GTA"/>
           <Button x:Name="NavGames"  Style="{StaticResource Nav}" Content="Weitere Spiele"/>
           <Button x:Name="NavNet"    Style="{StaticResource Nav}" Content="Netzwerk"/>
           <Button x:Name="NavClean"  Style="{StaticResource Nav}" Content="Aufräumen"/>
           <TextBlock Text="SONSTIGES" Foreground="#4F6B55" FontSize="11" FontWeight="Bold" Margin="6,14,0,4"/>
           <Button x:Name="NavInfo"   Style="{StaticResource Nav}" Content="Info"/>
-        </StackPanel>
+        </StackPanel></ScrollViewer>
       </DockPanel>
     </Border>
 
@@ -234,6 +236,52 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
         </UniformGrid>
         <Button x:Name="BtnUndo2" Style="{StaticResource Btn}" Content="Alles rückgängig machen" Width="260" HorizontalAlignment="Left" Margin="0,4,0,0"/>
       </StackPanel>
+
+      <!-- FPS-Test -->
+      <StackPanel x:Name="PageFps" Grid.Row="0" Visibility="Collapsed">
+        <TextBlock Text="FPS-Test" Style="{StaticResource H1}"/>
+        <TextBlock Text="Misst deine echten FPS im Spiel, einmal ohne und einmal mit GreenTweak. So siehst du schwarz auf weiß, was es bei dir bringt." Style="{StaticResource Sub}"/>
+        <UniformGrid Columns="3">
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <TextBlock Text="FPS messen" Style="{StaticResource CardTitle}" Foreground="#39FF14"/>
+            <TextBlock Text="Spiel starten, hier klicken, ins Spiel wechseln. Nach 10 Sekunden wird 30 Sekunden lang gemessen." Style="{StaticResource Small}" Margin="0,8,0,16" Height="48"/>
+            <Button x:Name="FpsMeasure" Style="{StaticResource Primary}" Content="Messung starten"/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Ohne Tweak" Style="{StaticResource Small}"/>
+            <TextBlock x:Name="FpsBefore" Text="-" Style="{StaticResource Big}"/>
+            <TextBlock x:Name="FpsBeforeSub" Text="Noch nicht gemessen" Style="{StaticResource Small}"/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Letzte Messung" Style="{StaticResource Small}"/>
+            <TextBlock x:Name="FpsLast" Text="-" Style="{StaticResource Big}"/>
+            <TextBlock x:Name="FpsLastSub" Text="Noch nicht gemessen" Style="{StaticResource Small}"/>
+          </StackPanel></Border>
+        </UniformGrid>
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+          <Button x:Name="BgCheck" Style="{StaticResource Btn}" Content="Hintergrund-Check (FPS-Fresser finden)" Width="330" Margin="0,0,12,0"/>
+          <Button x:Name="FpsHistory" Style="{StaticResource Btn}" Content="Verlauf anzeigen" Width="200"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Autostart -->
+      <Grid x:Name="PageAuto" Grid.Row="0" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0">
+          <TextBlock Text="Autostart" Style="{StaticResource H1}"/>
+          <TextBlock Text="Programme, die mit Windows starten. Haken weg = startet nicht mehr von selbst. Wie im Task-Manager und jederzeit wieder einschaltbar. Wichtige Einträge (Sicherheit, Sound, Touchpad) sind gesperrt." Style="{StaticResource Sub}"/>
+        </StackPanel>
+        <Button Grid.Row="1" x:Name="AutoRefresh" Style="{StaticResource Btn}" Content="Liste neu laden" Width="200" Height="38" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="12">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="AutoList"/>
+          </ScrollViewer>
+        </Border>
+      </Grid>
 
       <!-- FiveM -->
       <StackPanel x:Name="PageFiveM" Grid.Row="0" Visibility="Collapsed">
@@ -386,13 +434,15 @@ function Log($text, $color = "DarkGreen") {
 }
 
 # --- Seiten-Navigation ---
-$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
+$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavFps="PageFps"; NavAuto="PageAuto"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
 function Show-Page($nav) {
     foreach ($k in $pages.Keys) {
         (C $pages[$k]).Visibility = if ($k -eq $nav) { "Visible" } else { "Collapsed" }
         (C $k).Tag = if ($k -eq $nav) { "active" } else { $null }
     }
     if ($nav -eq "NavDash") { Update-Dashboard }
+    if ($nav -eq "NavFps")  { Update-FpsCards }
+    if ($nav -eq "NavAuto") { Fill-AutoList }
 }
 foreach ($k in @($pages.Keys)) { (C $k).Add_Click({ Show-Page $this.Name }) }
 
@@ -479,6 +529,104 @@ function Run($block) {
     if ($r -eq "Yes") { Restart-Computer -Force }
 })
 (C "BtnDiscord").Add_Click({ Start-Process $DiscordLink })
+
+# --- FPS-Test ---
+function Update-FpsCards {
+    try {
+        $h = @(Get-FpsHistory)
+        $before = $h | Where-Object { -not $_.Tweak } | Select-Object -First 1
+        $last   = $h | Select-Object -Last 1
+        if ($before) {
+            (C "FpsBefore").Text = "$($before.Avg) FPS"
+            (C "FpsBeforeSub").Text = "1% Low: $($before.Low1) FPS | $($before.Date)"
+        }
+        if ($last) {
+            (C "FpsLast").Text = "$($last.Avg) FPS"
+            $sub = "1% Low: $($last.Low1) FPS | $($last.Date)"
+            if ($last.Tweak -and $before -and $before.Avg -gt 0) {
+                $pct = [math]::Round(($last.Avg - $before.Avg) / $before.Avg * 100)
+                $sub += " | " + $(if ($pct -ge 0) { "+" } else { "" }) + "$pct %"
+            }
+            (C "FpsLastSub").Text = $sub
+        }
+    } catch {}
+}
+(C "FpsMeasure").Add_Click({ Run { Invoke-FpsMeasure | Out-Null; Update-FpsCards } })
+(C "BgCheck").Add_Click({ Run { Invoke-BackgroundCheck } })
+(C "FpsHistory").Add_Click({ Run {
+    Log "`n== FPS-Verlauf =="
+    $h = @(Get-FpsHistory)
+    if ($h.Count -eq 0) { Log "  Noch keine Messungen." }
+    foreach ($e in ($h | Select-Object -Last 10)) {
+        Log ("  {0}  {1,-24} {2,4} FPS  (1% Low {3})  {4}" -f $e.Date, $e.Game, $e.Avg, $e.Low1, $(if ($e.Tweak) { "mit Tweak" } else { "ohne Tweak" }))
+    }
+} })
+
+# --- Autostart ---
+$Bc = New-Object Windows.Media.BrushConverter
+function Fill-AutoList {
+    $list = C "AutoList"
+    $list.Children.Clear()
+    $items = @()
+    try { $items = @(Get-StartupItems) } catch { Log ("  [X] Autostart konnte nicht gelesen werden: " + $_.Exception.Message); return }
+    if ($items.Count -eq 0) {
+        $t = New-Object Windows.Controls.TextBlock
+        $t.Text = "Keine Autostart-Einträge gefunden."
+        $t.Foreground = $Bc.ConvertFromString("#7E9A83")
+        $list.Children.Add($t) | Out-Null
+        return
+    }
+    foreach ($it in $items) {
+        $cb = New-Object Windows.Controls.CheckBox
+        $cb.IsChecked = [bool]$it.Enabled
+        $cb.IsEnabled = -not $it.Protected
+        $cb.Margin = New-Object Windows.Thickness(0, 5, 0, 5)
+        $cb.VerticalContentAlignment = "Center"
+        $sp = New-Object Windows.Controls.StackPanel
+        $sp.Margin = New-Object Windows.Thickness(8, 0, 0, 0)
+        $t1 = New-Object Windows.Controls.TextBlock
+        $t1.Text = $it.Name + $(if ($it.Protected) { "  (gesperrt, wichtig)" } else { "" })
+        $t1.FontSize = 14
+        $t1.Foreground = $Bc.ConvertFromString("#E3F5E5")
+        $t2 = New-Object Windows.Controls.TextBlock
+        $t2.Text = $it.Cmd
+        $t2.FontSize = 11.5
+        $t2.MaxWidth = 760
+        $t2.TextTrimming = "CharacterEllipsis"
+        $t2.Foreground = $Bc.ConvertFromString("#7E9A83")
+        $sp.Children.Add($t1) | Out-Null
+        $sp.Children.Add($t2) | Out-Null
+        $cb.Content = $sp
+        $cb.Tag = $it
+        $cb.Add_Click({
+            try { Set-StartupItem $this.Tag ([bool]$this.IsChecked) }
+            catch { Log ("  [X] Fehler: " + $_.Exception.Message) }
+        })
+        $list.Children.Add($cb) | Out-Null
+    }
+    $on = @($items | Where-Object { $_.Enabled }).Count
+    Log ("  Autostart: " + $items.Count + " Einträge, davon " + $on + " aktiv.")
+}
+(C "AutoRefresh").Add_Click({ Fill-AutoList })
+
+# --- Neu in dieser Version ---
+$win.Add_ContentRendered({
+    try {
+        $seenFile = Join-Path $BackupDir "version_seen.txt"
+        $seen = if (Test-Path $seenFile) { (Get-Content $seenFile -Raw).Trim() } else { "" }
+        if ($seen -ne $Version) {
+            Set-Content -Path $seenFile -Value $Version
+            $txt = "Neu in GreenTweak $($Version):`n`n" +
+                   "- FPS-Test: Miss deine echten FPS ohne und mit Tweak`n" +
+                   "- Autostart: Programme per Haken vom Windows-Start abhalten`n" +
+                   "- Hintergrund-Check: Findet FPS-Fresser wie Browser, OBS und Co.`n" +
+                   "- Wiederherstellungspunkt jetzt auch vor dem Entschlacken`n`n" +
+                   "Viel Spaß! - Green Community"
+            [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
+        }
+    } catch {}
+})
+
 
 (C "InfoText").Text = "Version: $Version`nSicherung und Protokoll: $BackupDir`nDiscord: $DiscordLink`n`nAlle Änderungen werden vorher gesichert. Mit 'Alles rückgängig' ist dein PC wieder wie vorher."
 
