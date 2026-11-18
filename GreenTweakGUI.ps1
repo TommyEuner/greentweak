@@ -214,7 +214,7 @@ $DiscordLink = "https://discord.gg/KMZKewWQTp"
       <!-- Profile -->
       <StackPanel x:Name="PageProf" Grid.Row="0" Visibility="Collapsed">
         <TextBlock Text="Profile" Style="{StaticResource H1}"/>
-        <TextBlock Text="Wähle, wie stark GreenTweak eingreifen soll. Alles wird vorher gesichert und ist mit „Alles rückgängig“ zurückzusetzen." Style="{StaticResource Sub}"/>
+        <TextBlock Text="Wähle, wie stark GreenTweak eingreifen soll. Alles wird vorher gesichert und ist mit 'Alles rückgängig' zurückzusetzen." Style="{StaticResource Sub}"/>
         <UniformGrid Columns="3">
           <Border Style="{StaticResource CardBorder}"><StackPanel>
             <TextBlock Text="Leicht" Style="{StaticResource CardTitle}"/>
@@ -480,7 +480,7 @@ function Run($block) {
 })
 (C "BtnDiscord").Add_Click({ Start-Process $DiscordLink })
 
-(C "InfoText").Text = "Version: $Version`nSicherung und Protokoll: $BackupDir`nDiscord: $DiscordLink`n`nAlle Änderungen werden vorher gesichert. Mit „Alles rückgängig“ ist dein PC wieder wie vorher."
+(C "InfoText").Text = "Version: $Version`nSicherung und Protokoll: $BackupDir`nDiscord: $DiscordLink`n`nAlle Änderungen werden vorher gesichert. Mit 'Alles rückgängig' ist dein PC wieder wie vorher."
 
 Show-Page "NavDash"
 Log "GreenTweak v$Version bereit. Tipp: Starte zuerst den Systemcheck."
