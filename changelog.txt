@@ -1,0 +1,5 @@
+- Neue Oberflaeche mit Dashboard
+- Netzwerk-Test und Netzwerk optimieren
+- Windows entschlacken, Apps entfernen, Zwischenspeicher
+- FiveM komplett bereinigen
+- Spielprofile fuer Fortnite, Valorant, CS2
