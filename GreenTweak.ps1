@@ -164,16 +164,7 @@ function Invoke-ApplyProfile($Preset) {
     $list = @($Tweaks | Where-Object { $_.Group -eq "Basis" })
     if ($prof -ne "Leicht") { $list += @($Tweaks | Where-Object { $_.Group -eq "Gaming" }); $list += @(Get-PrioTweaks); $list += @(Get-GpuPrefTweaks) }
 
-    # Wiederherstellungspunkt
-    Log "`n== Wiederherstellungspunkt ==" Green
-    try {
-        Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction SilentlyContinue
-        Checkpoint-Computer -Description "Vor GreenTweak" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
-        Ok "Wiederherstellungspunkt erstellt."
-    } catch {
-        Warn "Kein Wiederherstellungspunkt moeglich (Windows erlaubt nur einen pro 24 Std.)."
-        Warn "Die eigene Sicherung von GreenTweak wird trotzdem angelegt."
-    }
+    New-GTRestorePoint "Vor GreenTweak"
 
     # Sicherung anlegen
     $backup = [ordered]@{
@@ -442,7 +433,7 @@ function Invoke-SystemCheck {
     # Autostart + RAM-Fresser
     Log "`n== Hintergrund ==" Green
     $auto = @(Get-CimInstance Win32_StartupCommand -ErrorAction SilentlyContinue).Count
-    if ($auto -gt 8) { Warn "$auto Programme starten mit Windows."; $tips += "Autostart ausmisten: Einstellungen > Apps > Autostart." }
+    if ($auto -gt 8) { Warn "$auto Programme starten mit Windows."; $tips += "Autostart ausmisten: Seite 'Autostart' in GreenTweak." }
     else { Ok "$auto Programme im Autostart." }
     Log "  Groesste RAM-Verbraucher gerade:" DarkGreen
     Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 5 | ForEach-Object {
@@ -652,6 +643,7 @@ $BloatApps = [ordered]@{
 function Invoke-Debloat {
     Log "`n######## Windows entschlacken ########" Green
     if (Test-Path $DebloatBackupFile) { Warn "Entschlacken ist schon aktiv. Zum Neu-Anwenden erst zuruecksetzen."; return }
+    New-GTRestorePoint "Vor GreenTweak Entschlacken"
     $bk = [ordered]@{ Created = (Get-Date).ToString("s"); Registry = @(); Services = @() }
     foreach ($r in $DebloatReg) { $bk.Registry += (Get-RegState $r.Path $r.Name) }
     foreach ($n in $DebloatServices.Keys) {
@@ -793,6 +785,219 @@ function Invoke-FiveMDeepClean {
     Log "  Der erste Serverbeitritt danach dauert etwas laenger (Dateien werden neu geladen)." DarkGreen
 }
 
+
+# ============================================================
+#  v2.6: Wiederherstellungspunkt, Autostart, FPS-Messung, Hintergrund-Check
+# ============================================================
+$FpsHistoryFile = Join-Path $BackupDir "fps_history.json"
+$ToolsDir       = Join-Path $BackupDir "tools"
+$PresentMonUrl  = "https://github.com/GameTechDev/PresentMon/releases/download/v2.6.0/PresentMon-2.6.0-x64.exe"
+$PresentMonExe  = Join-Path $ToolsDir "PresentMon-2.6.0-x64.exe"
+
+function New-GTRestorePoint($label) {
+    Log "`n== Wiederherstellungspunkt ==" Green
+    try {
+        $k = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
+        if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null }
+        Set-ItemProperty -Path $k -Name "SystemRestorePointCreationFrequency" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+        Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description $label -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
+        Ok "Wiederherstellungspunkt erstellt ($label)."
+    } catch {
+        Warn "Kein Wiederherstellungspunkt moeglich (Computerschutz evtl. aus)."
+        Warn "Die eigene Sicherung von GreenTweak wird trotzdem angelegt."
+    }
+}
+
+# ---------- Autostart ----------
+$StartupSources = @(
+    @{ Kind = "Reg";    Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run";              Approved = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" },
+    @{ Kind = "Reg";    Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run";              Approved = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" },
+    @{ Kind = "Reg";    Path = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";  Approved = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32" },
+    @{ Kind = "Folder"; Path = (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup");     Approved = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" },
+    @{ Kind = "Folder"; Path = (Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\StartUp"); Approved = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" }
+)
+$StartupProtected = "SecurityHealth|Defender|RtkAud|Realtek|Waves|Synaptics|ELAN|igfx|Nahimic|ctfmon"
+
+function Get-StartupItems {
+    $items = @()
+    foreach ($s in $StartupSources) {
+        $names = @()
+        if ($s.Kind -eq "Reg") {
+            if (-not (Test-Path $s.Path)) { continue }
+            $p = Get-ItemProperty -Path $s.Path -ErrorAction SilentlyContinue
+            if (-not $p) { continue }
+            foreach ($prop in $p.PSObject.Properties) {
+                if ($prop.Name -like "PS*") { continue }
+                $names += [pscustomobject]@{ Name = $prop.Name; Cmd = ("" + $prop.Value) }
+            }
+        } else {
+            if (-not (Test-Path $s.Path)) { continue }
+            foreach ($f in Get-ChildItem -Path $s.Path -File -ErrorAction SilentlyContinue) {
+                if ($f.Name -eq "desktop.ini") { continue }
+                $names += [pscustomobject]@{ Name = $f.Name; Cmd = $f.FullName }
+            }
+        }
+        foreach ($n in $names) {
+            $enabled = $true
+            try {
+                $v = (Get-ItemProperty -Path $s.Approved -Name $n.Name -ErrorAction Stop).($n.Name)
+                if ($v -and $v.Length -gt 0 -and (($v[0] -band 1) -eq 1)) { $enabled = $false }
+            } catch {}
+            $items += [pscustomobject]@{
+                Name      = $n.Name
+                Cmd       = $n.Cmd
+                Approved  = $s.Approved
+                Enabled   = $enabled
+                Protected = ($n.Name -match $StartupProtected -or $n.Cmd -match $StartupProtected)
+            }
+        }
+    }
+    return $items | Sort-Object Name
+}
+
+function Set-StartupItem($item, [bool]$enable) {
+    if (-not (Test-Path $item.Approved)) { New-Item -Path $item.Approved -Force | Out-Null }
+    if ($enable) {
+        $bytes = [byte[]](2,0,0,0,0,0,0,0,0,0,0,0)
+    } else {
+        $ft = [BitConverter]::GetBytes((Get-Date).ToFileTime())
+        $bytes = [byte[]](@(3,0,0,0) + $ft)
+    }
+    Set-ItemProperty -Path $item.Approved -Name $item.Name -Value $bytes -Type Binary
+    if ($enable) { Ok ("Autostart an: " + $item.Name) } else { Ok ("Autostart aus: " + $item.Name) }
+}
+
+# ---------- Hintergrund-Check ----------
+$HogTips = [ordered]@{
+    "chrome|msedge|firefox|opera|brave" = "Browser offen - beim Zocken schliessen spart RAM und CPU."
+    "obs64|obs32"                        = "OBS laeuft - nur offen lassen, wenn du aufnimmst/streamst."
+    "Discord"                            = "Discord: Einstellungen > Erweitert > Hardwarebeschleunigung aus und Spiel-Overlay aus."
+    "Spotify"                            = "Spotify: Hardwarebeschleunigung in den Einstellungen ausschalten."
+    "steamwebhelper"                     = "Steam: Overlay und Browser-Hintergrund verbrauchen RAM."
+    "EpicGamesLauncher"                  = "Epic Launcher im Hintergrund - schliessen, wenn du ihn nicht brauchst."
+    "OneDrive"                           = "OneDrive synchronisiert - beim Zocken pausieren."
+    "Teams|ms-teams"                     = "Teams im Hintergrund - schliessen, wenn nicht gebraucht."
+    "wallpaper32|wallpaper64"            = "Wallpaper Engine - kostet GPU-Leistung."
+    "iCUE|NZXT CAM|SignalRgb|LightingService" = "RGB-Software kann kleine Ruckler verursachen."
+}
+
+function Invoke-BackgroundCheck {
+    Log "`n######## Hintergrund-Check ########" Green
+    $procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID }
+    $groups = $procs | Group-Object ProcessName | ForEach-Object {
+        [pscustomobject]@{ Name = $_.Name; MB = [math]::Round((($_.Group | Measure-Object WorkingSet64 -Sum).Sum) / 1MB) }
+    } | Sort-Object MB -Descending
+    Log "  Groesste RAM-Verbraucher:" DarkGreen
+    foreach ($g in ($groups | Select-Object -First 8)) { Log ("    {0,-28} {1,6} MB" -f $g.Name, $g.MB) DarkGreen }
+    $found = 0
+    foreach ($k in $HogTips.Keys) {
+        $hit = $groups | Where-Object { $_.Name -match ("^(" + $k + ")$") } | Select-Object -First 1
+        if ($hit) { Warn ($hit.Name + " (" + $hit.MB + " MB): " + $HogTips[$k]); $found++ }
+    }
+    if ($found -eq 0) { Ok "Keine typischen FPS-Fresser im Hintergrund gefunden." }
+    $os = Get-CimInstance Win32_OperatingSystem
+    $usedPct = [math]::Round((1 - $os.FreePhysicalMemory / $os.TotalVisibleMemorySize) * 100)
+    if ($usedPct -gt 80) { Warn "RAM zu $usedPct % belegt - Programme schliessen hilft gegen Ruckler." }
+    else { Ok "RAM zu $usedPct % belegt." }
+}
+
+# ---------- FPS-Messung (Intel PresentMon) ----------
+function Get-GameProcess {
+    $pattern = "GTAProcess|^GTA5$|^GTA5_Enhanced$|^FortniteClient-Win64-Shipping$|^VALORANT-Win64-Shipping$|^cs2$"
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $pattern } |
+        Sort-Object WorkingSet64 -Descending | Select-Object -First 1
+}
+
+function Get-PresentMon {
+    if (Test-Path $PresentMonExe) { return $PresentMonExe }
+    Log "  Lade Messwerkzeug (Intel PresentMon, ca. 1 MB) ..." DarkGreen
+    if (-not (Test-Path $ToolsDir)) { New-Item -ItemType Directory -Path $ToolsDir -Force | Out-Null }
+    $tmp = $PresentMonExe + ".download"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $PresentMonUrl -OutFile $tmp -UseBasicParsing -TimeoutSec 60
+    } catch { Bad "Download fehlgeschlagen. Internet pruefen."; return $null }
+    $sig = Get-AuthenticodeSignature $tmp
+    if ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "Intel") {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        Bad "Messwerkzeug hat keine gueltige Intel-Signatur - abgebrochen."
+        return $null
+    }
+    Move-Item $tmp $PresentMonExe -Force
+    Ok "Messwerkzeug bereit (signiert von Intel)."
+    return $PresentMonExe
+}
+
+function Get-FpsHistory {
+    $out = @()
+    if (Test-Path $FpsHistoryFile) {
+        try {
+            $j = Get-Content $FpsHistoryFile -Raw | ConvertFrom-Json
+            foreach ($e in $j) { $out += $e }
+        } catch {}
+    }
+    return $out
+}
+
+function Invoke-FpsMeasure([int]$Seconds = 30, [int]$Delay = 10) {
+    Log "`n######## FPS-Messung ########" Green
+    $game = Get-GameProcess
+    if (-not $game) {
+        Warn "Kein Spiel gefunden. Starte zuerst FiveM/GTA (oder Fortnite, Valorant, CS2) und geh ins Spiel."
+        return $null
+    }
+    $exe = Get-PresentMon
+    if (-not $exe) { return $null }
+    $csv = Join-Path $ToolsDir "messung.csv"
+    Remove-Item $csv -Force -ErrorAction SilentlyContinue
+    Log ("  Spiel erkannt: " + $game.ProcessName) DarkGreen
+    Log "  Wechsle jetzt ins Spiel! Messung startet in $Delay Sekunden und dauert $Seconds Sekunden." Yellow
+    Log "  Tipp: Fuer faire Vergleiche immer an der gleichen Stelle messen." DarkGreen
+    $pmArgs = "--process_id $($game.Id) --delay $Delay --timed $Seconds --terminate_after_timed --output_file `"$csv`" --stop_existing_session --no_console_stats --v1_metrics --session_name GreenTweakFps"
+    $p = Start-Process -FilePath $exe -ArgumentList $pmArgs -WindowStyle Hidden -PassThru
+    $limit = (Get-Date).AddSeconds($Delay + $Seconds + 20)
+    $lastSay = -1
+    while (-not $p.HasExited -and (Get-Date) -lt $limit) {
+        Start-Sleep -Milliseconds 250
+        $left = [int](($limit.AddSeconds(-20) - (Get-Date)).TotalSeconds)
+        if ($left -ne $lastSay -and $left -ge 0 -and ($left % 5 -eq 0)) { Log "  ... noch $left Sekunden" DarkGreen; $lastSay = $left }
+        if (Get-Command Update-UI -ErrorAction SilentlyContinue) { Update-UI }
+    }
+    if (-not $p.HasExited) { try { $p.Kill() } catch {} }
+    if (-not (Test-Path $csv)) { Bad "Keine Messdaten. War das Spiel im Vordergrund?"; return $null }
+    $ms = @()
+    foreach ($row in (Import-Csv $csv)) {
+        $v = 0.0
+        if ([double]::TryParse(("" + $row.MsBetweenPresents), [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$v)) {
+            if ($v -gt 0 -and $v -lt 1000) { $ms += $v }
+        }
+    }
+    if ($ms.Count -lt 50) { Bad "Zu wenige Bilder gemessen. Bitte im Spiel bleiben und nochmal messen."; return $null }
+    $avg    = 1000 / (($ms | Measure-Object -Average).Average)
+    $sorted = $ms | Sort-Object
+    $p99    = $sorted[[math]::Min($sorted.Count - 1, [int][math]::Floor($sorted.Count * 0.99))]
+    $low1   = 1000 / $p99
+    $res = [pscustomobject]@{
+        Date  = (Get-Date).ToString("dd.MM.yyyy HH:mm")
+        Game  = $game.ProcessName
+        Avg   = [math]::Round($avg)
+        Low1  = [math]::Round($low1)
+        Tweak = (Test-Path $BackupFile)
+    }
+    $hist = @(Get-FpsHistory) + $res
+    $hist | Select-Object -Last 50 | ConvertTo-Json | Set-Content -Path $FpsHistoryFile -Encoding UTF8
+    Ok ("Durchschnitt: " + $res.Avg + " FPS | 1% Low: " + $res.Low1 + " FPS")
+    $before = $hist | Where-Object { -not $_.Tweak -and $_.Game -eq $res.Game } | Select-Object -First 1
+    if ($res.Tweak -and $before) {
+        $diff = $res.Avg - $before.Avg
+        $pct  = [math]::Round($diff / [math]::Max(1, $before.Avg) * 100)
+        Ok ("Vergleich mit Messung ohne Tweak (" + $before.Date + "): " + $before.Avg + " -> " + $res.Avg + " FPS (" + $(if ($diff -ge 0) { "+" } else { "" }) + $pct + " %)")
+    } elseif (-not $res.Tweak) {
+        Log "  Das war deine Messung OHNE Tweak. Wende jetzt ein Profil an, starte neu und miss nochmal." Yellow
+    }
+    return $res
+}
 
 if ($NoMenu) { return }
 
