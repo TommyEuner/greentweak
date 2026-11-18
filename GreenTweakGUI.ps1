@@ -483,7 +483,9 @@ function Update-Dashboard {
         (C "CardDiskSub").Text = "frei auf $env:SystemDrive"
     } catch {}
     try {
-        $g = Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch "Microsoft|Basic|Virtual|Parsec" } | Select-Object -First 1
+        $all = @(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -notmatch "Microsoft|Basic|Virtual|Parsec|Remote|Meta" })
+        $g = $all | Where-Object { $_.Name -match "NVIDIA|GeForce|Quadro|Radeon RX|Radeon Pro|Arc\(TM\) [AB]\d|Arc [AB]\d" } | Select-Object -First 1
+        if (-not $g) { $g = $all | Select-Object -First 1 }
         (C "CardGpu").Text = ($g.Name -replace "NVIDIA GeForce |AMD Radeon ", "")
         $age = [int]((Get-Date) - $g.DriverDate).TotalDays
         (C "CardGpuSub").Text = "Treiber $age Tage alt"
