@@ -143,6 +143,7 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
         <TextBlock DockPanel.Dock="Top" Text="FPS-Tool für GTA &amp; FiveM" Foreground="#7E9A83" FontSize="12.5" Margin="4,4,0,18"/>
 
         <StackPanel DockPanel.Dock="Bottom">
+          <TextBlock x:Name="UserText" Text="" Foreground="#7E9A83" FontSize="12" Margin="4,0,0,8" TextWrapping="Wrap"/>
           <Button x:Name="BtnDiscord" Style="{StaticResource Btn}" Content="Discord öffnen" Height="40"/>
         </StackPanel>
 
@@ -274,6 +275,14 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           <Button x:Name="FpsHistory" Style="{StaticResource Btn}" Content="Verlauf anzeigen" Width="200" Margin="0,0,12,0"/>
           <Button x:Name="FpsShare" Style="{StaticResource Primary}" Content="Ergebnis im Discord teilen" Width="260"/>
         </StackPanel>
+        <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14" Margin="0,16,12,0"><StackPanel>
+          <TextBlock Text="FPS-Rangliste (neu)" Style="{StaticResource CardTitle}" Foreground="#39FF14"/>
+          <TextBlock Text="Lade deine letzte Messung hoch und vergleiche dich mit den anderen Boostern. Es zählt dein bester Wert pro Spiel." Style="{StaticResource Small}" Margin="0,8,0,14" TextWrapping="Wrap"/>
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="FpsUpload" Style="{StaticResource Primary}" Content="In Rangliste hochladen" Width="260" Margin="0,0,12,0"/>
+            <Button x:Name="FpsBoard" Style="{StaticResource Btn}" Content="Rangliste ansehen" Width="220"/>
+          </StackPanel>
+        </StackPanel></Border>
       </StackPanel>
 
       <!-- Autostart -->
@@ -409,6 +418,7 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           <TextBlock x:Name="InfoText" Style="{StaticResource Small}" FontSize="14" Foreground="#CFE6D2"/>
         </StackPanel></Border>
         <Button x:Name="BtnStatus" Style="{StaticResource Btn}" Content="Aktive Tweaks anzeigen" Width="260" HorizontalAlignment="Left"/>
+        <Button x:Name="BtnLogout" Style="{StaticResource Btn}" Content="Abmelden" Width="260" HorizontalAlignment="Left" Margin="0,10,0,0"/>
       </StackPanel>
 
       <!-- Protokoll -->
@@ -681,6 +691,204 @@ function Fill-AutoList {
 })
 
 
+# --- Booster-Login und FPS-Rangliste (v3.0) ---
+$ApiBase       = "https://greentweak-api.janpoh9.workers.dev"
+$BoardUrl      = "https://tommyeuner.github.io/greentweak/#rangliste"
+$AuthFile      = Join-Path $BackupDir "auth.json"
+$AuthPort      = 53682
+$AuthGraceDays = 7
+$script:GTUser = $null
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+
+function Get-GTAuth {
+    try { if (Test-Path $AuthFile) { return (Get-Content $AuthFile -Raw | ConvertFrom-Json) } } catch {}
+    return $null
+}
+function Save-GTAuth($token, $user) {
+    [pscustomobject]@{ token = $token; id = $user.id; name = $user.name; exp = $user.exp; checked = (Get-Date).ToString("o") } |
+        ConvertTo-Json | Set-Content -Path $AuthFile -Encoding UTF8
+}
+function Test-GTToken($token) {
+    # Rueckgabe: Nutzer-Objekt, "invalid" oder "offline"
+    try {
+        $r = Invoke-RestMethod -Uri "$ApiBase/verify" -Headers @{ Authorization = "Bearer $token" } -TimeoutSec 8 -UseBasicParsing
+        if ($r.ok) { return $r.user }
+        return "invalid"
+    } catch {
+        $code = 0
+        try { $code = [int]$_.Exception.Response.StatusCode } catch {}
+        if ($code -eq 401) { return "invalid" }
+        return "offline"
+    }
+}
+function Get-AuthSwitch {
+    # Not-Aus: steht in auth.txt auf GitHub "off", ist kein Login noetig
+    try {
+        $t = (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/TommyEuner/greentweak/main/auth.txt" -UseBasicParsing -TimeoutSec 6).Content
+        if ("$t".Trim().ToLower() -eq "off") { return $false }
+    } catch {}
+    return $true
+}
+
+function Show-LoginWindow {
+    [xml]$lx = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  Title="GreenTweak - Anmelden" Width="470" Height="430" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#0A120C">
+  <StackPanel Margin="36,28,36,20">
+    <Image x:Name="LLogo" Width="76" Height="76" Margin="0,0,0,10"/>
+    <TextBlock Text="GreenTweak" Foreground="#39FF14" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"/>
+    <TextBlock Text="Exklusiv für Booster der Green Community" Foreground="#CFE6D2" FontSize="14" HorizontalAlignment="Center" Margin="0,6,0,20"/>
+    <Button x:Name="LBtn" Content="Mit Discord anmelden" Height="48" FontSize="15" FontWeight="Bold" Foreground="White" Background="#5865F2" BorderThickness="0" Cursor="Hand"/>
+    <TextBlock x:Name="LStatus" Text="Dein Browser öffnet sich. Melde dich bei Discord an und klicke auf 'Autorisieren'." Foreground="#7E9A83" FontSize="12.5" TextWrapping="Wrap" TextAlignment="Center" Margin="0,14,0,12"/>
+    <Button x:Name="LJoin" Content="Noch kein Booster? Zum Discord" Height="34" FontSize="12.5" Foreground="#39FF14" Background="Transparent" BorderThickness="0" Cursor="Hand"/>
+  </StackPanel>
+</Window>
+"@
+    $lw = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $lx))
+    $icoL = Join-Path $AppDir "GreenTweak.ico"
+    if (Test-Path $icoL) {
+        $lw.Icon = [Windows.Media.Imaging.BitmapFrame]::Create([Uri]$icoL)
+        $lw.FindName("LLogo").Source = [Windows.Media.Imaging.BitmapFrame]::Create([Uri]$icoL)
+    }
+    $lBtn = $lw.FindName("LBtn"); $lStatus = $lw.FindName("LStatus")
+    $state = @{ ok = $false; user = $null; listener = $null; ar = $null; started = $null }
+    $timer = New-Object Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(300)
+
+    $reset = {
+        param($msg)
+        $timer.Stop()
+        try { if ($state.listener) { $state.listener.Stop(); $state.listener.Close() } } catch {}
+        $state.listener = $null; $state.ar = $null
+        $lStatus.Text = $msg; $lStatus.Foreground = $Bc.ConvertFromString("#FFB347")
+        $lBtn.IsEnabled = $true; $lBtn.Content = "Nochmal anmelden"
+    }
+
+    $timer.Add_Tick({
+        if (-not $state.ar) { return }
+        if ($state.ar.IsCompleted) {
+            $timer.Stop()
+            $token = $null
+            try {
+                $ctx = $state.listener.EndGetContext($state.ar)
+                $token = $ctx.Request.QueryString["token"]
+                $html = "<!doctype html><html><head><meta charset='utf-8'><title>GreenTweak</title></head>" +
+                        "<body style='background:#07110b;color:#e8fff0;font-family:Segoe UI,Arial;display:grid;place-items:center;height:100vh;margin:0'>" +
+                        "<div style='text-align:center'><h1 style='color:#39ff88'>Angemeldet!</h1><p>Du kannst dieses Fenster schließen und zu GreenTweak zurückgehen.</p></div></body></html>"
+                $buf = [Text.Encoding]::UTF8.GetBytes($html)
+                $ctx.Response.ContentType = "text/html; charset=utf-8"
+                $ctx.Response.OutputStream.Write($buf, 0, $buf.Length)
+                $ctx.Response.Close()
+            } catch {}
+            try { $state.listener.Stop(); $state.listener.Close() } catch {}
+            $state.listener = $null; $state.ar = $null
+            if (-not $token) { & $reset "Anmeldung abgebrochen. Bitte nochmal versuchen."; return }
+            $lStatus.Text = "Prüfe Anmeldung..."
+            $u = Test-GTToken $token
+            if ($u -is [string]) { & $reset "Anmeldung konnte nicht geprüft werden. Bitte nochmal versuchen."; return }
+            Save-GTAuth $token $u
+            $state.ok = $true; $state.user = $u
+            $lw.Close()
+        } elseif (((Get-Date) - $state.started).TotalSeconds -gt 300) {
+            & $reset "Zeit abgelaufen. Falls Discord 'Nur für Booster' anzeigt, boost zuerst den Server."
+        }
+    })
+
+    $lBtn.Add_Click({
+        try {
+            $l = New-Object Net.HttpListener
+            $l.Prefixes.Add("http://127.0.0.1:$AuthPort/")
+            $l.Start()
+        } catch { & $reset "Login-Port $AuthPort ist belegt. Starte den PC neu und versuche es nochmal."; return }
+        $state.listener = $l
+        $state.ar = $l.BeginGetContext($null, $null)
+        $state.started = Get-Date
+        $timer.Start()
+        $lBtn.IsEnabled = $false; $lBtn.Content = "Warte auf Discord..."
+        $lStatus.Text = "Bestätige die Anmeldung im Browser. Danach geht es hier automatisch weiter."
+        $lStatus.Foreground = $Bc.ConvertFromString("#7E9A83")
+        Start-Process "$ApiBase/login?port=$AuthPort"
+    })
+    $lw.FindName("LJoin").Add_Click({ Start-Process $DiscordLink })
+    $lw.Add_Closed({ $timer.Stop(); try { if ($state.listener) { $state.listener.Stop(); $state.listener.Close() } } catch {} })
+    [void]$lw.ShowDialog()
+    return $state
+}
+
+function Invoke-AuthGate {
+    if (-not (Get-AuthSwitch)) { return $true }
+    $a = Get-GTAuth
+    if ($a -and $a.token) {
+        $u = Test-GTToken $a.token
+        if ($u -is [string]) {
+            if ($u -eq "offline") {
+                $chk = [datetime]::MinValue
+                try { $chk = [datetime]::Parse($a.checked) } catch {}
+                if (((Get-Date) - $chk).TotalDays -le $AuthGraceDays) { $script:GTUser = $a; return $true }
+            }
+            Remove-Item $AuthFile -Force -ErrorAction SilentlyContinue
+        } else {
+            Save-GTAuth $a.token $u
+            $script:GTUser = $u
+            return $true
+        }
+    }
+    $s = Show-LoginWindow
+    if ($s.ok) { $script:GTUser = $s.user; return $true }
+    return $false
+}
+
+function Get-BoardGame($proc) {
+    if ($proc -match "FiveM") { return "FiveM" }
+    if ($proc -match "^GTA5") { return "GTA5" }
+    if ($proc -match "Fortnite") { return "Fortnite" }
+    if ($proc -match "VALORANT") { return "Valorant" }
+    if ($proc -match "^cs2$") { return "CS2" }
+    return "Andere"
+}
+
+(C "FpsUpload").Add_Click({
+    $h = @(Get-FpsHistory)
+    if ($h.Count -eq 0) { [Windows.MessageBox]::Show("Mach zuerst eine FPS-Messung.", "GreenTweak") | Out-Null; return }
+    $last = $h | Select-Object -Last 1
+    $a = Get-GTAuth
+    if (-not $a -or -not $a.token) {
+        [Windows.MessageBox]::Show("Du bist nicht angemeldet. Starte GreenTweak neu und melde dich mit Discord an.", "GreenTweak") | Out-Null; return
+    }
+    $game = Get-BoardGame $last.Game
+    $hw = @{ Gpu = ""; Cpu = "" }
+    try { $hw = Get-HardwareInfo } catch {}
+    $body = @{ game = $game; avg = $last.Avg; low1 = $last.Low1; gpu = $hw.Gpu; cpu = $hw.Cpu; ver = $Version } | ConvertTo-Json
+    try {
+        $r = Invoke-RestMethod -Uri "$ApiBase/fps" -Method Post -Headers @{ Authorization = "Bearer $($a.token)" } `
+             -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8" -TimeoutSec 15 -UseBasicParsing
+        if ($r.best) {
+            $msg = "Hochgeladen!`n`n$game - $($last.Avg) FPS (1% Low: $($last.Low1))`nDu bist auf Platz $($r.rank) von $($r.total)."
+        } else {
+            $msg = "Dein bisheriger Bestwert in $game ist höher und bleibt stehen.`nDu bist auf Platz $($r.rank) von $($r.total)."
+        }
+        Log "Rangliste: $game $($last.Avg) FPS hochgeladen (Platz $($r.rank))."
+        $q = [Windows.MessageBox]::Show("$msg`n`nRangliste jetzt ansehen?", "GreenTweak - Rangliste", "YesNo", "Information")
+        if ($q -eq "Yes") { Start-Process $BoardUrl }
+    } catch {
+        $err = ""
+        try { $err = ($_.ErrorDetails.Message | ConvertFrom-Json).error } catch {}
+        if (-not $err) { $err = "Server nicht erreichbar. Bitte später nochmal versuchen." }
+        if ($err -eq "auth") { $err = "Deine Anmeldung ist abgelaufen. Starte GreenTweak neu und melde dich an." }
+        [Windows.MessageBox]::Show("Upload hat nicht geklappt:`n$err", "GreenTweak") | Out-Null
+    }
+})
+(C "FpsBoard").Add_Click({ Start-Process $BoardUrl })
+(C "BtnLogout").Add_Click({
+    $q = [Windows.MessageBox]::Show("Wirklich abmelden? Beim nächsten Start musst du dich neu mit Discord anmelden.", "GreenTweak", "YesNo", "Question")
+    if ($q -eq "Yes") {
+        Remove-Item $AuthFile -Force -ErrorAction SilentlyContinue
+        [Windows.MessageBox]::Show("Abgemeldet. GreenTweak wird jetzt beendet.", "GreenTweak") | Out-Null
+        $win.Close()
+    }
+})
+
+
 # --- Neu in dieser Version ---
 $win.Add_ContentRendered({
     try {
@@ -689,10 +897,9 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- FPS-Test: Miss deine echten FPS ohne und mit Tweak`n" +
-                   "- Autostart: Programme per Haken vom Windows-Start abhalten`n" +
-                   "- Hintergrund-Check: Findet FPS-Fresser wie Browser, OBS und Co.`n" +
-                   "- Wiederherstellungspunkt jetzt auch vor dem Entschlacken`n`n" +
+                   "- Booster-Login mit Discord`n" +
+                   "- FPS-Rangliste: Lade deine Messung hoch und vergleiche dich mit anderen Boostern`n" +
+                   "- Rangliste auch auf der Website`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
@@ -702,8 +909,12 @@ $win.Add_ContentRendered({
 
 (C "InfoText").Text = "Version: $Version`nSicherung und Protokoll: $BackupDir`nDiscord: $DiscordLink`n`nAlle Änderungen werden vorher gesichert. Mit 'Alles rückgängig' ist dein PC wieder wie vorher."
 
+try { [GT.Win]::ShowWindow([GT.Win]::GetConsoleWindow(), 0) | Out-Null } catch {}
+$authOk = $true
+try { $authOk = Invoke-AuthGate } catch { try { Add-Content -Path (Join-Path $BackupDir "fehler.txt") -Value ("[{0}] Login: {1}" -f (Get-Date), $_) } catch {}; $authOk = $true }
+if (-not $authOk) { exit }
+if ($script:GTUser) { (C "UserText").Text = "Angemeldet als $($script:GTUser.name)" }
 Show-Page "NavDash"
 Update-GameModeButton
 Log "GreenTweak v$Version bereit. Tipp: Starte zuerst den Systemcheck."
-try { [GT.Win]::ShowWindow([GT.Win]::GetConsoleWindow(), 0) | Out-Null } catch {}
 [void]$win.ShowDialog()
