@@ -1,4 +1,2 @@
-  - NEU: FPS-Test - misst deine echten FPS ohne und mit Tweak (Intel PresentMon)
-  - NEU: Autostart-Manager - Programme per Haken vom Windows-Start abhalten
-  - NEU: Hintergrund-Check - findet FPS-Fresser wie Browser, OBS und Co.
-  - Wiederherstellungspunkt jetzt auch vor dem Entschlacken
+  - NEU: Gaming-Modus - vor dem Zocken an (Hoechstleistung, keine Benachrichtigungen, Hintergrund-Apps zu), danach aus
+  - NEU: FPS-Ergebnis mit einem Klick im Discord teilen
