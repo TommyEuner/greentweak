@@ -1,2 +1,4 @@
-  - Startprobleme werden jetzt als Meldung angezeigt statt still abzubrechen
-  - Fehlerprotokoll unter C:\ProgramData\GreenTweak\fehler.txt
+  - NEU: FPS-Test - misst deine echten FPS ohne und mit Tweak (Intel PresentMon)
+  - NEU: Autostart-Manager - Programme per Haken vom Windows-Start abhalten
+  - NEU: Hintergrund-Check - findet FPS-Fresser wie Browser, OBS und Co.
+  - Wiederherstellungspunkt jetzt auch vor dem Entschlacken
