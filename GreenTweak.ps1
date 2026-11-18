@@ -999,6 +999,83 @@ function Invoke-FpsMeasure([int]$Seconds = 30, [int]$Delay = 10) {
     return $res
 }
 
+# ============================================================
+#  v2.7: Gaming-Modus (vor dem Zocken an, danach aus)
+# ============================================================
+$GameModeFile = Join-Path $BackupDir "gamemode.json"
+$GameModeClose = @("OneDrive", "Teams", "ms-teams", "PhoneExperienceHost", "YourPhone", "Widgets", "WidgetService",
+                   "GoogleDriveFS", "Dropbox", "AdobeCollabSync", "CCleaner64", "CCleaner")
+$GameModeRestart = @("OneDrive", "GoogleDriveFS", "Dropbox")
+$ToastKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications"
+
+function Test-GameMode { return (Test-Path $GameModeFile) }
+
+function Get-GameModeTargets {
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $GameModeClose -contains $_.ProcessName } |
+        Sort-Object ProcessName -Unique
+}
+
+function Invoke-GameModeOn {
+    Log "`n######## Gaming-Modus AN ########" Green
+    if (Test-GameMode) { Warn "Gaming-Modus ist schon an."; return }
+    $state = [ordered]@{ Created = (Get-Date).ToString("s"); PowerPlan = $null; Toasts = $null; Restart = @() }
+
+    # Energieplan
+    $state.PowerPlan = Get-GuidFromText (powercfg /getactivescheme)
+    $gt = (powercfg /list) | Where-Object { $_ -match "GreenTweak Gaming" } | Select-Object -First 1
+    $target = if ($gt) { Get-GuidFromText $gt } else { "SCHEME_MIN" }
+    powercfg /setactive $target 2>$null | Out-Null
+    Ok "Energieplan auf Hoechstleistung."
+
+    # Benachrichtigungen aus
+    $state.Toasts = Get-RegState $ToastKey "ToastEnabled"
+    Set-Reg $ToastKey "ToastEnabled" 0 "DWord"
+    Ok "Windows-Benachrichtigungen pausiert."
+
+    # Hintergrund-Programme schliessen
+    $n = 0
+    foreach ($p in @(Get-GameModeTargets)) {
+        $path = $null
+        try { $path = $p.Path } catch {}
+        if ($path -and ($GameModeRestart -contains $p.ProcessName)) { $state.Restart += $path }
+        Get-Process -Name $p.ProcessName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Ok ("Geschlossen: " + $p.ProcessName)
+        $n++
+    }
+    if ($n -eq 0) { Ok "Keine stoerenden Hintergrund-Programme gefunden." }
+
+    # Browser nur melden, nicht schliessen (offene Tabs!)
+    $br = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match "^(chrome|msedge|firefox|opera|brave)$" } | Select-Object -ExpandProperty ProcessName -Unique
+    foreach ($b in $br) { Warn "$b ist offen - am besten selbst schliessen (wegen deiner Tabs nicht automatisch)." }
+
+    [void][System.GC]::Collect()
+    $state | ConvertTo-Json -Depth 4 | Set-Content -Path $GameModeFile -Encoding UTF8
+    Log "  Gaming-Modus ist AN. Nach dem Zocken wieder ausschalten." Yellow
+}
+
+function Invoke-GameModeOff {
+    Log "`n######## Gaming-Modus AUS ########" Green
+    if (-not (Test-GameMode)) { Warn "Gaming-Modus ist nicht an."; return }
+    $s = Get-Content $GameModeFile -Raw | ConvertFrom-Json
+    if ($s.PowerPlan) { powercfg /setactive $s.PowerPlan 2>$null | Out-Null; Ok "Vorheriger Energieplan wieder aktiv." }
+    if ($s.Toasts) {
+        if ($s.Toasts.Exists) { Set-Reg $ToastKey "ToastEnabled" $s.Toasts.Value "DWord" }
+        else { Remove-ItemProperty -Path $ToastKey -Name "ToastEnabled" -ErrorAction SilentlyContinue }
+        Ok "Benachrichtigungen wieder an."
+    }
+    foreach ($path in @($s.Restart)) {
+        if ($path -and (Test-Path $path)) {
+            $a = if ($path -match "OneDrive") { "/background" } else { "" }
+            try {
+                if ($a) { Start-Process -FilePath $path -ArgumentList $a } else { Start-Process -FilePath $path }
+                Ok ("Wieder gestartet: " + (Split-Path $path -Leaf))
+            } catch {}
+        }
+    }
+    Remove-Item $GameModeFile -Force -ErrorAction SilentlyContinue
+    Log "  Gaming-Modus ist AUS. Alles wie vorher." Yellow
+}
+
 if ($NoMenu) { return }
 
 # ------------------------------------------------------------
