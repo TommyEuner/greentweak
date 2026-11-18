@@ -1,3 +1,4 @@
-  - NEU: 1-Klick-Optimierung - erkennt Grafikkarte, RAM und Laptop/PC und waehlt die passenden Tweaks
-  - Tipps fuer deinen PC (XMP aus, alter Treiber, Akku-Betrieb, wenig RAM)
-  - Gaming-Modus und FPS-Ergebnis teilen (seit 2.7)
+  - NEU: Booster-Login mit Discord – GreenTweak gibt es exklusiv für Booster der Green Community
+  - NEU: FPS-Rangliste – lade deine Messung hoch und vergleiche dich mit anderen Boostern
+  - NEU: Rangliste live auf der Website
+  - Bisher: 1-Klick-Optimierung, Gaming-Modus, FPS-Test, Autostart-Manager
