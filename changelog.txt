@@ -1,2 +1,3 @@
-  - NEU: Gaming-Modus - vor dem Zocken an (Hoechstleistung, keine Benachrichtigungen, Hintergrund-Apps zu), danach aus
-  - NEU: FPS-Ergebnis mit einem Klick im Discord teilen
+  - NEU: 1-Klick-Optimierung - erkennt Grafikkarte, RAM und Laptop/PC und waehlt die passenden Tweaks
+  - Tipps fuer deinen PC (XMP aus, alter Treiber, Akku-Betrieb, wenig RAM)
+  - Gaming-Modus und FPS-Ergebnis teilen (seit 2.7)
