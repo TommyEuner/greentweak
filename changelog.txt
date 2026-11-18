@@ -1,4 +1,4 @@
-  - NEU: Booster-Login mit Discord – GreenTweak gibt es exklusiv für Booster der Green Community
-  - NEU: FPS-Rangliste – lade deine Messung hoch und vergleiche dich mit anderen Boostern
-  - NEU: Rangliste live auf der Website
+  - NEU: Turbo – zusätzliche Einstellungen für mehr FPS und ruhigere Frametimes
+  - NEU: Optional Speicher-Integrität ausschalten (bringt oft 5-10 % FPS)
+  - Booster-Login mit Discord und FPS-Rangliste (seit 3.0)
   - Bisher: 1-Klick-Optimierung, Gaming-Modus, FPS-Test, Autostart-Manager
