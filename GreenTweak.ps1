@@ -1,4 +1,4 @@
-param([switch]$NoMenu)
+param([switch]$NoMenu, [switch]$AutoGame)
 # ============================================================
 #  GreenTweak v2 - Gaming-Tweaks fuer Windows 10/11
 #  Alle Aenderungen werden vorher gesichert und sind per
@@ -239,6 +239,7 @@ function Invoke-Cleanup {
 # ------------------------------------------------------------
 function Invoke-Undo {
     if (Test-Path $TurboFile) { Invoke-TurboOff }
+    if (Test-AutoGame) { Disable-AutoGame }
     if (-not (Test-Path $BackupFile)) { Warn "Keine Sicherung gefunden - es gibt nichts rueckgaengig zu machen."; return }
     $backup = Get-Content $BackupFile -Raw | ConvertFrom-Json
 
@@ -1253,6 +1254,98 @@ function Invoke-TurboOff {
     Log "`nTurbo ist aus. Bitte den PC neu starten." Green
 }
 
+# ============================================================
+#  v3.2: Auto-Gaming-Modus (an, sobald FiveM laeuft)
+# ============================================================
+$AutoGameTask = "GreenTweak AutoGame"
+$AutoGameVbs  = Join-Path $BackupDir "autogame.vbs"
+
+function Test-AutoGame {
+    try { return [bool](Get-ScheduledTask -TaskName $AutoGameTask -ErrorAction Stop) } catch { return $false }
+}
+
+function Stop-AutoGameProcess {
+    Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*-AutoGame*" -and $_.ProcessId -ne $PID } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+}
+
+function Enable-AutoGame {
+    Log "`n== Auto-Gaming-Modus einschalten ==" Green
+    $script = Join-Path $PSScriptRoot "GreenTweak.ps1"
+    $vbs = 'CreateObject("WScript.Shell").Run "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""' + $script + '"" -AutoGame", 0, False'
+    Set-Content -Path $AutoGameVbs -Value $vbs -Encoding ASCII
+    $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $act  = New-ScheduledTaskAction -Execute "wscript.exe" -Argument ('"' + $AutoGameVbs + '"')
+    $trg  = New-ScheduledTaskTrigger -AtLogOn -User $user
+    $prn  = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
+    $set  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+    Register-ScheduledTask -TaskName $AutoGameTask -Action $act -Trigger $trg -Principal $prn -Settings $set -Force | Out-Null
+    Stop-AutoGameProcess
+    Start-ScheduledTask -TaskName $AutoGameTask
+    Ok "Auto-Gaming-Modus ist an. Sobald FiveM laeuft, geht der Gaming-Modus automatisch an - danach wieder aus."
+}
+
+function Disable-AutoGame {
+    Log "`n== Auto-Gaming-Modus ausschalten ==" Green
+    try { Unregister-ScheduledTask -TaskName $AutoGameTask -Confirm:$false -ErrorAction Stop } catch {}
+    Stop-AutoGameProcess
+    Remove-Item $AutoGameVbs -Force -ErrorAction SilentlyContinue
+    Ok "Auto-Gaming-Modus ist aus."
+}
+
+function Start-AutoGameWatcher {
+    $m = New-Object System.Threading.Mutex($false, "Global\GreenTweakAutoGame")
+    if (-not $m.WaitOne(0)) { return }
+    $mine = $false
+    while ($true) {
+        try {
+            $game = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match "^FiveM|GTAProcess|^GTA5$|^GTA5_Enhanced$" }).Count -gt 0
+            if ($game -and -not $mine -and -not (Test-GameMode)) { Invoke-GameModeOn; $mine = $true }
+            elseif ((-not $game) -and $mine) {
+                if (Test-GameMode) { Invoke-GameModeOff }
+                $mine = $false
+            }
+        } catch {}
+        Start-Sleep -Seconds 5
+    }
+}
+
+# ============================================================
+#  v3.2: Live-Werte (Temperatur, Auslastung)
+# ============================================================
+function Get-NvidiaSmi {
+    $cands = @((Join-Path $env:SystemRoot "System32\nvidia-smi.exe"), (Join-Path $env:ProgramFiles "NVIDIA Corporation\NVSMI\nvidia-smi.exe"))
+    foreach ($p in $cands) { if (Test-Path $p) { return $p } }
+    return $null
+}
+
+function Get-LiveStats {
+    $s = [ordered]@{ GpuName = ""; GpuTemp = $null; GpuLoad = $null; VramUsed = $null; VramTotal = $null; CpuLoad = $null; CpuTemp = $null }
+    $smi = Get-NvidiaSmi
+    if ($smi) {
+        try {
+            $line = & $smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>$null | Select-Object -First 1
+            $f = "$line" -split ","
+            if ($f.Count -ge 5) {
+                $s.GpuName = $f[0].Trim()
+                $s.GpuTemp = [int]$f[1].Trim()
+                $s.GpuLoad = [int]$f[2].Trim()
+                $s.VramUsed = [int]$f[3].Trim()
+                $s.VramTotal = [int]$f[4].Trim()
+            }
+        } catch {}
+    }
+    try { $s.CpuLoad = [int]((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average) } catch {}
+    try {
+        $tz = Get-CimInstance -Namespace "root/wmi" -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction Stop | Select-Object -First 1
+        $c = [math]::Round($tz.CurrentTemperature / 10 - 273.15)
+        if ($c -gt 15 -and $c -lt 115) { $s.CpuTemp = [int]$c }
+    } catch {}
+    return $s
+}
+
+if ($AutoGame) { Start-AutoGameWatcher; return }
 if ($NoMenu) { return }
 
 # ------------------------------------------------------------
