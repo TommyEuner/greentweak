@@ -156,7 +156,8 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           <Button x:Name="NavDebloat" Style="{StaticResource Nav}" Content="Windows entschlacken"/>
           <TextBlock Text="SPIELE" Foreground="#4F6B55" FontSize="11" FontWeight="Bold" Margin="6,14,0,4"/>
           <Button x:Name="NavFps"    Style="{StaticResource Nav}" Content="FPS-Test"/>
-          <Button x:Name="NavTurbo"  Style="{StaticResource Nav}" Content="Turbo (neu)"/>
+          <Button x:Name="NavTurbo"  Style="{StaticResource Nav}" Content="Turbo"/>
+          <Button x:Name="NavLive"   Style="{StaticResource Nav}" Content="Leistung (neu)"/>
           <Button x:Name="NavFiveM"  Style="{StaticResource Nav}" Content="FiveM &amp; GTA"/>
           <Button x:Name="NavGames"  Style="{StaticResource Nav}" Content="Weitere Spiele"/>
           <Button x:Name="NavNet"    Style="{StaticResource Nav}" Content="Netzwerk"/>
@@ -281,7 +282,8 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           <TextBlock Text="Lade deine letzte Messung hoch und vergleiche dich mit den anderen Boostern. Es zählt dein bester Wert pro Spiel." Style="{StaticResource Small}" Margin="0,8,0,14" TextWrapping="Wrap"/>
           <StackPanel Orientation="Horizontal">
             <Button x:Name="FpsUpload" Style="{StaticResource Primary}" Content="In Rangliste hochladen" Width="260" Margin="0,0,12,0"/>
-            <Button x:Name="FpsBoard" Style="{StaticResource Btn}" Content="Rangliste ansehen" Width="220"/>
+            <Button x:Name="FpsBoard" Style="{StaticResource Btn}" Content="Rangliste ansehen" Width="200" Margin="0,0,12,0"/>
+            <Button x:Name="FpsImage" Style="{StaticResource Btn}" Content="Vorher/Nachher-Bild" Width="210"/>
           </StackPanel>
         </StackPanel></Border>
       </StackPanel>
@@ -304,6 +306,49 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
         </StackPanel>
         <TextBlock x:Name="TurboState" Style="{StaticResource Small}" Margin="0,12,0,0"/>
       </StackPanel>
+
+      <!-- Leistung (v3.2) -->
+      <ScrollViewer x:Name="PageLive" Grid.Row="0" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel>
+        <TextBlock Text="Leistung" Style="{StaticResource H1}"/>
+        <TextBlock Text="Live-Temperaturen, dein FPS-Verlauf und Extras für mehr Leistung. Die Werte aktualisieren sich alle paar Sekunden." Style="{StaticResource Sub}"/>
+        <UniformGrid Columns="3">
+          <Border x:Name="LiveGpuCard" Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Grafikkarte" Style="{StaticResource Small}"/>
+            <TextBlock x:Name="LiveGpu" Text="-" Style="{StaticResource Big}"/>
+            <TextBlock x:Name="LiveGpuSub" Text="Wird gelesen..." Style="{StaticResource Small}"/>
+          </StackPanel></Border>
+          <Border x:Name="LiveCpuCard" Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Prozessor" Style="{StaticResource Small}"/>
+            <TextBlock x:Name="LiveCpu" Text="-" Style="{StaticResource Big}"/>
+            <TextBlock x:Name="LiveCpuSub" Text="Wird gelesen..." Style="{StaticResource Small}"/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Zustand" Style="{StaticResource Small}"/>
+            <TextBlock x:Name="LiveState" Text="-" Style="{StaticResource Big}"/>
+            <TextBlock x:Name="LiveStateSub" Text="" Style="{StaticResource Small}"/>
+          </StackPanel></Border>
+        </UniformGrid>
+        <Border Style="{StaticResource CardBorder}"><StackPanel>
+          <DockPanel>
+            <TextBlock Text="FPS-Verlauf" Style="{StaticResource CardTitle}" Foreground="#39FF14"/>
+            <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Style="{StaticResource Small}" VerticalAlignment="Center">
+              <Run Text="━ Durchschnitt" Foreground="#39FF14"/><Run Text="   ━ 1% Low" Foreground="#FFB347"/><Run Text="   ● ohne Tweak" Foreground="#E3F5E5"/>
+            </TextBlock>
+          </DockPanel>
+          <Canvas x:Name="FpsChart" Height="150" Margin="0,12,0,0" ClipToBounds="True"/>
+        </StackPanel></Border>
+        <UniformGrid Columns="2">
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <CheckBox x:Name="AutoGameBox" Foreground="#39FF14" FontSize="15" FontWeight="Bold" Content="Auto-Gaming-Modus"/>
+            <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="Startest du FiveM oder GTA, geht der Gaming-Modus von selbst an. Schließt du das Spiel, ist alles wieder wie vorher. Läuft unsichtbar im Hintergrund."/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Grafikkarten-Einstellungen" Style="{StaticResource CardTitle}"/>
+            <TextBlock x:Name="NvidiaInfo" Style="{StaticResource Small}" Margin="0,8,0,12" Text="Niedrige Latenz und maximale Leistung im Treiber einstellen."/>
+            <Button x:Name="NvidiaGuide" Style="{StaticResource Primary}" Content="Anleitung + Treiber öffnen" Width="260" HorizontalAlignment="Left"/>
+          </StackPanel></Border>
+        </UniformGrid>
+      </StackPanel></ScrollViewer>
 
       <!-- Autostart -->
       <Grid x:Name="PageAuto" Grid.Row="0" Visibility="Collapsed">
@@ -476,7 +521,7 @@ function Log($text, $color = "DarkGreen") {
 }
 
 # --- Seiten-Navigation ---
-$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavFps="PageFps"; NavTurbo="PageTurbo"; NavAuto="PageAuto"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
+$pages = @{ NavDash="PageDash"; NavCheck="PageCheck"; NavFps="PageFps"; NavTurbo="PageTurbo"; NavLive="PageLive"; NavAuto="PageAuto"; NavProf="PageProf"; NavFiveM="PageFiveM"; NavNet="PageNet"; NavDebloat="PageDebloat"; NavGames="PageGames"; NavClean="PageClean"; NavInfo="PageInfo" }
 function Show-Page($nav) {
     foreach ($k in $pages.Keys) {
         (C $pages[$k]).Visibility = if ($k -eq $nav) { "Visible" } else { "Collapsed" }
@@ -486,6 +531,9 @@ function Show-Page($nav) {
     if ($nav -eq "NavFps")  { Update-FpsCards }
     if ($nav -eq "NavTurbo") { Update-TurboPage }
     if ($nav -eq "NavAuto") { Fill-AutoList }
+    if ($script:LiveTimer) {
+        if ($nav -eq "NavLive") { Update-LivePage; $script:LiveTimer.Start() } else { $script:LiveTimer.Stop() }
+    }
 }
 foreach ($k in @($pages.Keys)) { (C $k).Add_Click({ Show-Page $this.Name }) }
 
@@ -953,6 +1001,249 @@ function Update-TurboPage {
     if ($q -eq "Yes") { Restart-Computer -Force }
 })
 
+# ============================================================
+#  v3.2: Leistung (Temperaturen, FPS-Diagramm, Auto-Gaming, NVIDIA)
+# ============================================================
+function Set-Card($name, $level) {
+    $col = switch ($level) { "hot" { "#FF4D4D" } "warm" { "#FFB347" } default { "#1C2E20" } }
+    (C $name).BorderBrush = $Bc.ConvertFromString($col)
+}
+
+function Update-LiveStats {
+    $s = $null
+    try { $s = Get-LiveStats } catch { return }
+    $warn = @()
+    if ($null -ne $s.GpuTemp) {
+        (C "LiveGpu").Text = "$($s.GpuTemp) °C"
+        $sub = "Auslastung $($s.GpuLoad) %"
+        if ($s.VramTotal) { $sub += " | VRAM $([math]::Round($s.VramUsed/1024,1)) / $([math]::Round($s.VramTotal/1024,1)) GB" }
+        (C "LiveGpuSub").Text = $sub
+        $lvl = if ($s.GpuTemp -ge 83) { "hot" } elseif ($s.GpuTemp -ge 75) { "warm" } else { "ok" }
+        Set-Card "LiveGpuCard" $lvl
+        if ($lvl -eq "hot") { $warn += "Grafikkarte zu heiß" } elseif ($lvl -eq "warm") { $warn += "Grafikkarte warm" }
+    } else {
+        (C "LiveGpu").Text = "-"
+        (C "LiveGpuSub").Text = "Temperatur nur bei NVIDIA-Karten lesbar"
+    }
+    if ($null -ne $s.CpuTemp) {
+        (C "LiveCpu").Text = "$($s.CpuTemp) °C"
+        (C "LiveCpuSub").Text = "Auslastung $($s.CpuLoad) % | Mainboard-Sensor"
+        $lvl = if ($s.CpuTemp -ge 90) { "hot" } elseif ($s.CpuTemp -ge 80) { "warm" } else { "ok" }
+        Set-Card "LiveCpuCard" $lvl
+        if ($lvl -eq "hot") { $warn += "Prozessor zu heiß" } elseif ($lvl -eq "warm") { $warn += "Prozessor warm" }
+    } else {
+        (C "LiveCpu").Text = "$($s.CpuLoad) %"
+        (C "LiveCpuSub").Text = "Auslastung (Temperatur meldet dein PC nicht)"
+    }
+    if ($warn.Count -eq 0) {
+        (C "LiveState").Text = "Alles gut"
+        (C "LiveState").Foreground = $Bc.ConvertFromString("#39FF14")
+        (C "LiveStateSub").Text = "Temperaturen im grünen Bereich."
+    } else {
+        $hot = ($warn -join " ") -match "heiß"
+        (C "LiveState").Text = if ($hot) { "Zu heiß!" } else { "Warm" }
+        (C "LiveState").Foreground = $Bc.ConvertFromString($(if ($hot) { "#FF4D4D" } else { "#FFB347" }))
+        (C "LiveStateSub").Text = ($warn -join ", ") + ". Tipp: Lüfter und Staub prüfen, Gehäuse nicht zustellen."
+        if ($hot -and -not $script:HotWarned) {
+            $script:HotWarned = $true
+            Log ("  [!] Achtung: " + ($warn -join ", ") + " - das kostet FPS (Drosselung). Lüfter/Staub prüfen.")
+        }
+    }
+}
+
+function Draw-FpsChart {
+    $cv = C "FpsChart"
+    $cv.Children.Clear()
+    $w = $cv.ActualWidth; $h = $cv.ActualHeight
+    if ($w -lt 50) { return }
+    $data = @(Get-FpsHistory | Select-Object -Last 20)
+    if ($data.Count -lt 2) {
+        $t = New-Object Windows.Controls.TextBlock
+        $t.Text = "Noch zu wenige Messungen. Mach im FPS-Test mindestens zwei Messungen, dann siehst du hier deinen Verlauf."
+        $t.Foreground = $Bc.ConvertFromString("#7E9A83"); $t.TextWrapping = "Wrap"; $t.Width = $w
+        [Windows.Controls.Canvas]::SetTop($t, 50); [void]$cv.Children.Add($t)
+        return
+    }
+    $max = [double](($data | ForEach-Object { [double]$_.Avg } | Measure-Object -Maximum).Maximum)
+    $max = [math]::Ceiling($max * 1.15 / 10) * 10
+    if ($max -le 0) { $max = 100 }
+    $left = 40; $top = 8; $bottom = 22
+    $pw = $w - $left - 10; $ph = $h - $top - $bottom
+    foreach ($f in 0, 0.5, 1) {
+        $y = $top + $ph - $ph * $f
+        $ln = New-Object Windows.Shapes.Line
+        $ln.X1 = $left; $ln.X2 = $w - 10; $ln.Y1 = $y; $ln.Y2 = $y
+        $ln.Stroke = $Bc.ConvertFromString("#1C2E20"); $ln.StrokeThickness = 1
+        [void]$cv.Children.Add($ln)
+        $lb = New-Object Windows.Controls.TextBlock
+        $lb.Text = [string][math]::Round($max * $f); $lb.FontSize = 11
+        $lb.Foreground = $Bc.ConvertFromString("#7E9A83")
+        [Windows.Controls.Canvas]::SetLeft($lb, 0); [Windows.Controls.Canvas]::SetTop($lb, $y - 8)
+        [void]$cv.Children.Add($lb)
+    }
+    $n = $data.Count
+    foreach ($key in "Low1", "Avg") {
+        $pl = New-Object Windows.Shapes.Polyline
+        $pl.Stroke = $Bc.ConvertFromString($(if ($key -eq "Avg") { "#39FF14" } else { "#FFB347" }))
+        $pl.StrokeThickness = if ($key -eq "Avg") { 3 } else { 2 }
+        $pts = New-Object Windows.Media.PointCollection
+        for ($i = 0; $i -lt $n; $i++) {
+            $x = $left + $pw * $i / ($n - 1)
+            $y = $top + $ph - $ph * ([double]$data[$i].$key / $max)
+            $pts.Add((New-Object Windows.Point($x, $y)))
+            if ($key -eq "Avg") {
+                $d = New-Object Windows.Shapes.Ellipse
+                $d.Width = 9; $d.Height = 9
+                $d.Fill = $Bc.ConvertFromString($(if ($data[$i].Tweak) { "#39FF14" } else { "#E3F5E5" }))
+                $d.ToolTip = "$($data[$i].Date)  $($data[$i].Game)`n$($data[$i].Avg) FPS (1% Low $($data[$i].Low1))  " + $(if ($data[$i].Tweak) { "mit Tweak" } else { "ohne Tweak" })
+                [Windows.Controls.Canvas]::SetLeft($d, $x - 4.5); [Windows.Controls.Canvas]::SetTop($d, $y - 4.5)
+                [Windows.Controls.Panel]::SetZIndex($d, 5)
+                [void]$cv.Children.Add($d)
+            }
+        }
+        $pl.Points = $pts
+        [void]$cv.Children.Add($pl)
+    }
+    foreach ($i in 0, ($n - 1)) {
+        $lb = New-Object Windows.Controls.TextBlock
+        $lb.Text = ([string]$data[$i].Date).Split(" ")[0]; $lb.FontSize = 11
+        $lb.Foreground = $Bc.ConvertFromString("#7E9A83")
+        $x = $left + $pw * $i / ($n - 1)
+        [Windows.Controls.Canvas]::SetLeft($lb, $(if ($i -eq 0) { $x } else { $x - 60 }))
+        [Windows.Controls.Canvas]::SetTop($lb, $h - 16)
+        [void]$cv.Children.Add($lb)
+    }
+}
+(C "FpsChart").Add_SizeChanged({ try { Draw-FpsChart } catch {} })
+
+$script:LiveTimer = New-Object Windows.Threading.DispatcherTimer
+$script:LiveTimer.Interval = [TimeSpan]::FromSeconds(4)
+$script:LiveTimer.Add_Tick({ try { Update-LiveStats } catch {} })
+
+function Update-LivePage {
+    $script:SettingAuto = $true
+    try { (C "AutoGameBox").IsChecked = (Test-AutoGame) } catch {}
+    $script:SettingAuto = $false
+    try {
+        if (-not $script:HwVendor) { $script:HwVendor = (Get-HardwareInfo).Gpu }
+        $g = [string]$script:HwVendor
+        if ($g -match "NVIDIA|GeForce|RTX|GTX") { (C "NvidiaInfo").Text = "$($g): Niedrige Latenz und maximale Leistung im NVIDIA-Treiber einstellen (2 Minuten)." }
+        elseif ($g -match "Radeon|AMD") { (C "NvidiaInfo").Text = "$($g): Anti-Lag und Leistung in AMD Adrenalin einstellen (2 Minuten)." }
+        else { (C "NvidiaInfo").Text = "$($g): Treiber-Einstellungen für mehr Leistung." }
+    } catch {}
+    try { Draw-FpsChart } catch {}
+    Update-LiveStats
+}
+
+(C "AutoGameBox").Add_Checked({ if (-not $script:SettingAuto) { Run { Enable-AutoGame } } })
+(C "AutoGameBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-AutoGame } } })
+
+(C "NvidiaGuide").Add_Click({ Run {
+    $g = [string]$script:HwVendor
+    if ($g -match "Radeon|AMD") {
+        $txt = "So stellst du AMD Adrenalin auf Leistung:`n`n" +
+               "1. Rechtsklick auf den Desktop > AMD Software: Adrenalin Edition`n" +
+               "2. Oben auf 'Gaming' > 'Grafik'`n" +
+               "3. Radeon Anti-Lag: EIN (weniger Eingabeverzögerung)`n" +
+               "4. Radeon Chill: AUS`n" +
+               "5. Warten auf vertikale Aktualisierung: Immer aus`n" +
+               "6. Texturfilterungsqualität: Leistung`n`n" +
+               "Danach Adrenalin schließen - fertig."
+        Log "`n== AMD-Einstellungen =="
+        [Windows.MessageBox]::Show($txt, "GreenTweak - Grafikkarte", "OK", "Information") | Out-Null
+        return
+    }
+    $txt = "So stellst du NVIDIA auf maximale Leistung (das Fenster öffnet sich gleich):`n`n" +
+           "1. Links auf '3D-Einstellungen verwalten'`n" +
+           "2. Reiter 'Globale Einstellungen'`n" +
+           "3. Modus für niedrige Latenz: Ultra`n" +
+           "4. Energieverwaltungsmodus: Maximale Leistung bevorzugen`n" +
+           "5. Shader-Cache-Größe: Unbegrenzt`n" +
+           "6. Texturfilterung - Qualität: Hohe Leistung`n" +
+           "7. Bevorzugte Aktualisierungsrate: Höchste verfügbare`n" +
+           "8. Unten rechts auf 'Übernehmen'`n`n" +
+           "Zurück geht immer über 'Wiederherstellen' oben rechts."
+    Log "`n== NVIDIA-Einstellungen =="
+    [Windows.MessageBox]::Show($txt, "GreenTweak - NVIDIA", "OK", "Information") | Out-Null
+    $opened = $false
+    $old = Join-Path $env:ProgramFiles "NVIDIA Corporation\Control Panel Client\nvcplui.exe"
+    if (Test-Path $old) { Start-Process $old; $opened = $true }
+    else {
+        $pkg = Get-AppxPackage -Name "NVIDIACorp.NVIDIAControlPanel" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($pkg) { Start-Process "explorer.exe" ("shell:AppsFolder\" + $pkg.PackageFamilyName + "!NVIDIACorp.NVIDIAControlPanel"); $opened = $true }
+    }
+    if ($opened) { Ok "NVIDIA-Systemsteuerung geöffnet. Stell die Werte aus der Anleitung ein." }
+    else { Warn "NVIDIA-Systemsteuerung nicht gefunden. Rechtsklick auf den Desktop > NVIDIA-Systemsteuerung (oder im Microsoft Store installieren)." }
+} })
+
+# ============================================================
+#  v3.2: Vorher/Nachher-Bild zum Teilen
+# ============================================================
+function New-FpsShareImage {
+    $h = @(Get-FpsHistory)
+    $after = $h | Where-Object { $_.Tweak } | Select-Object -Last 1
+    if (-not $after) { Warn "Noch keine Messung MIT Tweak. Profil anwenden, neu starten und im FPS-Test messen."; return }
+    $before = $h | Where-Object { -not $_.Tweak -and $_.Game -eq $after.Game } | Select-Object -First 1
+    if (-not $before) { Warn "Keine Messung OHNE Tweak für $($after.Game) gefunden - ohne Vorher-Wert gibt es kein Vergleichsbild."; return }
+    $best = $h | Where-Object { $_.Tweak -and $_.Game -eq $after.Game } | Sort-Object { [int]$_.Avg } -Descending | Select-Object -First 1
+    if ($best) { $after = $best }
+
+    Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+    $S = 1080
+    $bmp = New-Object System.Drawing.Bitmap($S, $S)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = "AntiAlias"; $g.TextRenderingHint = "AntiAliasGridFit"; $g.InterpolationMode = "HighQualityBicubic"
+    $rect = New-Object System.Drawing.Rectangle(0, 0, $S, $S)
+    $bg = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, [System.Drawing.Color]::FromArgb(7, 12, 8), [System.Drawing.Color]::FromArgb(14, 40, 20), 60)
+    $g.FillRectangle($bg, $rect)
+    $green = [System.Drawing.Color]::FromArgb(57, 255, 20)
+    $white = [System.Drawing.Color]::FromArgb(227, 245, 229)
+    $grey  = [System.Drawing.Color]::FromArgb(126, 154, 131)
+    $pen = New-Object System.Drawing.Pen($green, 6)
+    $g.DrawRectangle($pen, 24, 24, $S - 48, $S - 48)
+    $c = New-Object System.Drawing.StringFormat; $c.Alignment = "Center"; $c.LineAlignment = "Center"
+    function T($text, $size, $color, $y, $style = "Bold") {
+        $f = New-Object System.Drawing.Font("Segoe UI", $size, [System.Drawing.FontStyle]$style, [System.Drawing.GraphicsUnit]::Pixel)
+        $b = New-Object System.Drawing.SolidBrush($color)
+        $g.DrawString($text, $f, $b, (New-Object System.Drawing.RectangleF(40, $y, ($S - 80), ($size * 1.5))), $c)
+        $f.Dispose(); $b.Dispose()
+    }
+    $ico = Join-Path $AppDir "GreenTweak.ico"
+    if (Test-Path $ico) {
+        try { $ic = New-Object System.Drawing.Icon($ico, 256, 256); $lg = $ic.ToBitmap(); $g.DrawImage($lg, ($S / 2 - 80), 70, 160, 160); $lg.Dispose(); $ic.Dispose() } catch {}
+    }
+    T "GreenTweak" 64 $green 245
+    $game = if ($after.Game -match "FiveM") { "FiveM" } elseif ($after.Game -match "GTA") { "GTA V" } else { [string]$after.Game }
+    T ("FPS-Test  |  " + $game) 36 $grey 345 "Regular"
+    # Vorher / Nachher nebeneinander
+    $fBig = New-Object System.Drawing.Font("Segoe UI", 150, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $fLbl = New-Object System.Drawing.Font("Segoe UI", 34, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $g.DrawString("VORHER", $fLbl, (New-Object System.Drawing.SolidBrush($grey)), (New-Object System.Drawing.RectangleF(40, 440, 420, 50)), $c)
+    $g.DrawString("NACHHER", $fLbl, (New-Object System.Drawing.SolidBrush($green)), (New-Object System.Drawing.RectangleF(620, 440, 420, 50)), $c)
+    $g.DrawString([string]$before.Avg, $fBig, (New-Object System.Drawing.SolidBrush($white)), (New-Object System.Drawing.RectangleF(40, 480, 420, 200)), $c)
+    $g.DrawString([string]$after.Avg, $fBig, (New-Object System.Drawing.SolidBrush($green)), (New-Object System.Drawing.RectangleF(620, 480, 420, 200)), $c)
+    $fArr = New-Object System.Drawing.Font("Segoe UI", 110, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+    $g.DrawString([string][char]0x2192, $fArr, (New-Object System.Drawing.SolidBrush($green)), (New-Object System.Drawing.RectangleF(440, 490, 200, 180)), $c)
+    $pct = [math]::Round(([double]$after.Avg - [double]$before.Avg) / [math]::Max(1, [double]$before.Avg) * 100)
+    $sign = if ($pct -ge 0) { "+" } else { "" }
+    T ("FPS   " + $sign + $pct + " %") 92 $green 690
+    T ("1% Low: " + $before.Low1 + " " + [char]0x2192 + " " + $after.Low1 + " FPS") 38 $white 830 "Regular"
+    $who = if ($script:GTUser -and $script:GTUser.name) { "@" + $script:GTUser.name + "  |  " } else { "" }
+    T ($who + "discord.gg/KMZKewWQTp") 32 $grey 945 "Regular"
+    $g.Dispose()
+
+    $dir = [Environment]::GetFolderPath("MyPictures")
+    if (-not $dir -or -not (Test-Path $dir)) { $dir = [Environment]::GetFolderPath("Desktop") }
+    $file = Join-Path $dir ("GreenTweak_FPS_" + (Get-Date -Format "yyyy-MM-dd_HH-mm") + ".png")
+    $bmp.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+    try { [System.Windows.Forms.Clipboard]::SetImage($bmp) } catch {}
+    $bmp.Dispose()
+    Ok ("Bild gespeichert: " + $file)
+    Ok "Das Bild ist auch kopiert - in Discord oder TikTok einfach mit Strg+V einfügen."
+    Start-Process $file
+}
+(C "FpsImage").Add_Click({ Run { Log "`n== Vorher/Nachher-Bild =="; New-FpsShareImage } })
+
 # --- Neu in dieser Version ---
 $win.Add_ContentRendered({
     try {
@@ -961,9 +1252,11 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- Turbo: Neue Seite mit zusätzlichen Einstellungen für mehr FPS`n" +
-                   "- Optional: Speicher-Integrität ausschalten (bringt oft 5-10 % FPS)`n" +
-                   "- Tipp: Vorher und nachher den FPS-Test machen!`n`n" +
+                   "- Neue Seite 'Leistung': Temperaturen live + Warnung, wenn es zu heiß wird`n" +
+                   "- FPS-Verlauf als Diagramm`n" +
+                   "- Auto-Gaming-Modus: geht von selbst an, sobald du FiveM startest`n" +
+                   "- NVIDIA/AMD: Anleitung für niedrige Latenz und maximale Leistung`n" +
+                   "- FPS-Test: Vorher/Nachher-Bild zum Teilen in Discord und TikTok`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
