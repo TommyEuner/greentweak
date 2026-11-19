@@ -1,3 +1,9 @@
+GreenTweak 3.2
+- Neue Seite "Leistung": Grafikkarten- und Prozessor-Temperatur live, mit Warnung wenn es zu heiss wird
+- FPS-Verlauf als Diagramm (Durchschnitt und 1% Low)
+- Auto-Gaming-Modus: geht von selbst an, sobald FiveM/GTA laeuft, und danach wieder aus
+- NVIDIA/AMD: Anleitung fuer niedrige Latenz und maximale Leistung, Treiber-Fenster oeffnet sich direkt
+- FPS-Test: Vorher/Nachher-Bild zum Teilen in Discord und TikTok (wird auch direkt kopiert)
   - NEU: Turbo – zusätzliche Einstellungen für mehr FPS und ruhigere Frametimes
   - NEU: Optional Speicher-Integrität ausschalten (bringt oft 5-10 % FPS)
   - Booster-Login mit Discord und FPS-Rangliste (seit 3.0)
