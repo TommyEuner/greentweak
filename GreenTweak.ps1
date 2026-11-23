@@ -327,9 +327,33 @@ function Test-GtaRunning {
     return $false
 }
 
-function Invoke-GtaLow {
-    Log "`n== GTA / FiveM: Grafik auf FPS ==" Green
-    Log "  (Schatten, Partikel, Gras, Spiegelungen, Effekte, Unschaerfe)" DarkGreen
+# Ultra-FPS (Potato): alles aus "Grafik auf FPS" plus Sichtweite, Details, Kantenglaettung, Wasser, Shader
+$GtaUltra = [ordered]@{}
+foreach ($k in $GtaLow.Keys) { $GtaUltra[$k] = $GtaLow[$k] }
+$GtaUltraExtra = [ordered]@{
+    Tessellation            = "0"
+    LodScale                = "0.000000"
+    PedLodBias              = "0.000000"
+    VehicleLodBias          = "0.000000"
+    MaxLodScale             = "0.000000"
+    Shadow_Distance         = "1.000000"
+    AnisotropicFiltering    = "0"
+    MSAA                    = "0"
+    FXAA_Enabled            = "false"
+    TXAA_Enabled            = "false"
+    WaterQuality            = "0"
+    ShaderQuality           = "0"
+    UltraShadows_Enabled    = "false"
+    Lighting_FogVolumes     = "false"
+    Shader_SSA              = "false"
+    HdStreamingInFlight     = "false"
+    CityDensity             = "0.000000"
+    PedVarietyMultiplier    = "0.000000"
+    VehicleVarietyMultiplier = "0.000000"
+}
+foreach ($k in $GtaUltraExtra.Keys) { $GtaUltra[$k] = $GtaUltraExtra[$k] }
+
+function Set-GtaGraphics($values, [switch]$NoVSync) {
     if (Test-GtaRunning) { return }
     $found = $false
     foreach ($f in $GtaFiles) {
@@ -343,10 +367,18 @@ function Invoke-GtaLow {
             $xml.Load($f)
             $g = $xml.SelectSingleNode("//graphics")
             if (-not $g) { Warn "Kein Grafik-Bereich in $f - uebersprungen."; continue }
-            foreach ($k in $GtaLow.Keys) {
+            foreach ($k in $values.Keys) {
                 $n = $g.SelectSingleNode($k)
                 if (-not $n) { $n = $xml.CreateElement($k); [void]$g.AppendChild($n) }
-                $n.SetAttribute("value", $GtaLow[$k])
+                $n.SetAttribute("value", $values[$k])
+            }
+            if ($NoVSync) {
+                $v = $xml.SelectSingleNode("//video")
+                if ($v) {
+                    $n = $v.SelectSingleNode("VSync")
+                    if (-not $n) { $n = $xml.CreateElement("VSync"); [void]$v.AppendChild($n) }
+                    $n.SetAttribute("value", "0")
+                }
             }
             $xml.Save($f)
             Ok $f
@@ -358,7 +390,22 @@ function Invoke-GtaLow {
         Warn "Keine GTA/FiveM-Grafikdatei gefunden. Starte GTA/FiveM einmal und versuch es dann nochmal."
     } else {
         Log "  Tipp: Aendere danach im Spiel nichts an der Grafik, sonst ueberschreibt das Spiel die Werte." DarkGreen
+        Log "  Zurueck geht's jederzeit mit 'Grafik zuruecksetzen'." DarkGreen
     }
+}
+
+function Invoke-GtaLow {
+    Log "`n== GTA / FiveM: Grafik auf FPS ==" Green
+    Log "  (Schatten, Partikel, Gras, Spiegelungen, Effekte, Unschaerfe)" DarkGreen
+    Set-GtaGraphics $GtaLow
+}
+
+function Invoke-GtaUltra {
+    Log "`n== GTA / FiveM: Ultra-FPS (Potato) ==" Green
+    Log "  (alles von 'Grafik auf FPS' + Sichtweite, Details, Kantenglaettung, Wasser, Shader, VSync aus)" DarkGreen
+    Log "  Texturen bleiben, damit es nicht matschig aussieht." DarkGreen
+    Set-GtaGraphics $GtaUltra -NoVSync
+    Log "  Danach FPS-Test machen und mit vorher vergleichen (gleiche Stelle!)." DarkGreen
 }
 
 function Invoke-GtaRestore {
