@@ -373,7 +373,12 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
       <StackPanel x:Name="PageFiveM" Grid.Row="0" Visibility="Collapsed">
         <TextBlock Text="FiveM &amp; GTA" Style="{StaticResource H1}"/>
         <TextBlock Text="Bitte GTA und FiveM vorher komplett schließen." Style="{StaticResource Sub}"/>
-        <UniformGrid Columns="4">
+        <UniformGrid Columns="3">
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Ultra-FPS (Potato)" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Maximale FPS: zusätzlich Sichtweite, Details, Kantenglättung, Wasser, Shader und VSync runter. Texturen bleiben." Style="{StaticResource Small}" Margin="0,8,0,16" Height="48"/>
+            <Button x:Name="GtaUltra" Style="{StaticResource Primary}" Content="Anwenden"/>
+          </StackPanel></Border>
           <Border Style="{StaticResource CardBorder}"><StackPanel>
             <TextBlock Text="Grafik auf FPS" Style="{StaticResource CardTitle}"/>
             <TextBlock Text="Schatten, Partikel, Gras, Spiegelungen, Effekte und Unschärfe auf Minimum." Style="{StaticResource Small}" Margin="0,8,0,16" Height="48"/>
@@ -594,6 +599,7 @@ function Run($block) {
 (C "BtnUndo2").Add_Click({ Run { Invoke-Undo } })
 (C "BtnCheck").Add_Click({ Run { Invoke-SystemCheck } })
 (C "GtaLow").Add_Click({ Run { Invoke-GtaLow } })
+(C "GtaUltra").Add_Click({ Run { Invoke-GtaUltra } })
 (C "GtaRestore").Add_Click({ Run { Invoke-GtaRestore } })
 (C "FiveMClean").Add_Click({ Run {
     Log "`n== FiveM-Cache leeren =="
@@ -1252,11 +1258,10 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- Neue Seite 'Leistung': Temperaturen live + Warnung, wenn es zu heiß wird`n" +
-                   "- FPS-Verlauf als Diagramm`n" +
-                   "- Auto-Gaming-Modus: geht von selbst an, sobald du FiveM startest`n" +
-                   "- NVIDIA/AMD: Anleitung für niedrige Latenz und maximale Leistung`n" +
-                   "- FPS-Test: Vorher/Nachher-Bild zum Teilen in Discord und TikTok`n`n" +
+                   "- Neu auf der Seite 'FiveM & GTA': Ultra-FPS (Potato)`n" +
+                   "  Dreht zusätzlich Sichtweite, Details, Kantenglättung, Wasser, Shader und VSync runter.`n" +
+                   "  Texturen bleiben. Mit 'Grafik zurücksetzen' ist alles wieder wie vorher.`n`n" +
+                   "Tipp: Danach FPS-Test an der gleichen Stelle machen und vergleichen.`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
