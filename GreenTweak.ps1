@@ -240,6 +240,7 @@ function Invoke-Cleanup {
 function Invoke-Undo {
     if (Test-Path $TurboFile) { Invoke-TurboOff }
     if (Test-AutoGame) { Disable-AutoGame }
+    if (Test-ECore) { Disable-ECore }
     if (-not (Test-Path $BackupFile)) { Warn "Keine Sicherung gefunden - es gibt nichts rueckgaengig zu machen."; return }
     $backup = Get-Content $BackupFile -Raw | ConvertFrom-Json
 
@@ -449,6 +450,7 @@ function Invoke-SystemCheck {
     $xmpOff = ($type -eq "DDR4" -and $cur -le 2666) -or ($type -eq "DDR5" -and $cur -le 4800)
     if ($xmpOff) {
         Warn "RAM laeuft nur mit $cur MT/s - XMP/EXPO ist wahrscheinlich AUS."
+        try { Log ("  So geht's: " + (Get-XmpStatus).Steps + " (F10 = speichern)") DarkGreen } catch {}
         $tips += "Im BIOS XMP (Intel) bzw. EXPO (AMD) aktivieren - oft +10-20 % FPS in CPU-lastigen Spielen wie FiveM."
     } else { Ok "RAM-Takt sieht gut aus (XMP/EXPO vermutlich an)." }
     if ($mem.Count -eq 1) { Warn "Nur 1 RAM-Riegel - kein Dual-Channel."; $tips += "Zwei gleiche RAM-Riegel (Dual-Channel) bringen deutlich mehr FPS als einer." }
@@ -1306,10 +1308,23 @@ function Invoke-TurboOff {
 # ============================================================
 $AutoGameTask = "GreenTweak AutoGame"
 $AutoGameVbs  = Join-Path $BackupDir "autogame.vbs"
+$AutoGameFlag = Join-Path $BackupDir "autogame.on"
+$ECoreFlag    = Join-Path $BackupDir "ecore.on"
+$GameRegex    = "^FiveM|GTAProcess|^GTA5$|^GTA5_Enhanced$"
 
-function Test-AutoGame {
+function Test-WatcherTask {
     try { return [bool](Get-ScheduledTask -TaskName $AutoGameTask -ErrorAction Stop) } catch { return $false }
 }
+
+function Test-AutoGame {
+    # Uebernahme aus v3.2/3.3: dort gab es nur die Aufgabe, keine Merker-Datei
+    if ((Test-WatcherTask) -and -not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag)) {
+        try { Set-Content -Path $AutoGameFlag -Value "1" } catch {}
+    }
+    return (Test-Path $AutoGameFlag)
+}
+
+function Test-ECore { return (Test-Path $ECoreFlag) }
 
 function Stop-AutoGameProcess {
     Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
@@ -1317,8 +1332,7 @@ function Stop-AutoGameProcess {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 }
 
-function Enable-AutoGame {
-    Log "`n== Auto-Gaming-Modus einschalten ==" Green
+function Install-Watcher {
     $script = Join-Path $PSScriptRoot "GreenTweak.ps1"
     $vbs = 'CreateObject("WScript.Shell").Run "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""' + $script + '"" -AutoGame", 0, False'
     Set-Content -Path $AutoGameVbs -Value $vbs -Encoding ASCII
@@ -1330,32 +1344,170 @@ function Enable-AutoGame {
     Register-ScheduledTask -TaskName $AutoGameTask -Action $act -Trigger $trg -Principal $prn -Settings $set -Force | Out-Null
     Stop-AutoGameProcess
     Start-ScheduledTask -TaskName $AutoGameTask
+}
+
+function Remove-WatcherIfUnused {
+    if ((Test-Path $AutoGameFlag) -or (Test-Path $ECoreFlag)) { Install-Watcher; return }
+    try { Unregister-ScheduledTask -TaskName $AutoGameTask -Confirm:$false -ErrorAction Stop } catch {}
+    Stop-AutoGameProcess
+    Remove-Item $AutoGameVbs -Force -ErrorAction SilentlyContinue
+}
+
+function Enable-AutoGame {
+    Log "`n== Auto-Gaming-Modus einschalten ==" Green
+    Set-Content -Path $AutoGameFlag -Value "1"
+    Install-Watcher
     Ok "Auto-Gaming-Modus ist an. Sobald FiveM laeuft, geht der Gaming-Modus automatisch an - danach wieder aus."
 }
 
 function Disable-AutoGame {
     Log "`n== Auto-Gaming-Modus ausschalten ==" Green
-    try { Unregister-ScheduledTask -TaskName $AutoGameTask -Confirm:$false -ErrorAction Stop } catch {}
-    Stop-AutoGameProcess
-    Remove-Item $AutoGameVbs -Force -ErrorAction SilentlyContinue
+    Remove-Item $AutoGameFlag -Force -ErrorAction SilentlyContinue
+    Remove-WatcherIfUnused
     Ok "Auto-Gaming-Modus ist aus."
+}
+
+# ------------------------------------------------------------
+#  v3.4: E-Kern-Modus (FiveM nur auf den starken Kernen)
+# ------------------------------------------------------------
+function Get-PCoreMask {
+    if (-not ("GTCpu" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+public static class GTCpu {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetSystemCpuSetInformation(IntPtr info, uint len, out uint ret, IntPtr proc, uint flags);
+    // Liefert die Maske der starken Kerne (P-Kerne) in Gruppe 0, oder 0 wenn alle Kerne gleich sind.
+    public static long PMask(out int pCount, out int eCount) {
+        pCount = 0; eCount = 0;
+        uint len;
+        GetSystemCpuSetInformation(IntPtr.Zero, 0, out len, IntPtr.Zero, 0);
+        if (len == 0) return 0;
+        IntPtr buf = Marshal.AllocHGlobal((int)len);
+        try {
+            if (!GetSystemCpuSetInformation(buf, len, out len, IntPtr.Zero, 0)) return 0;
+            var lps = new List<int>(); var cls = new List<byte>();
+            byte maxC = 0, minC = 255; int off = 0;
+            while (off < len) {
+                int size = Marshal.ReadInt32(buf, off);
+                if (size <= 0) break;
+                short grp = Marshal.ReadInt16(buf, off + 12);
+                byte lp = Marshal.ReadByte(buf, off + 14);
+                byte ec = Marshal.ReadByte(buf, off + 18);
+                if (grp == 0 && lp < 63) { lps.Add(lp); cls.Add(ec); }
+                if (ec > maxC) maxC = ec;
+                if (ec < minC) minC = ec;
+                off += size;
+            }
+            if (maxC == minC) return 0;
+            long m = 0;
+            for (int i = 0; i < lps.Count; i++) {
+                if (cls[i] == maxC) { m |= (1L << lps[i]); pCount++; } else { eCount++; }
+            }
+            return m;
+        } finally { Marshal.FreeHGlobal(buf); }
+    }
+}
+"@
+    }
+    $p = 0; $e = 0
+    $mask = [GTCpu]::PMask([ref]$p, [ref]$e)
+    return [pscustomobject]@{ Mask = [long]$mask; P = $p; E = $e }
+}
+
+function Get-AllCoreMask {
+    $n = [Environment]::ProcessorCount
+    if ($n -ge 63) { return [long]0x7FFFFFFFFFFFFFFF }
+    return [long]([math]::Pow(2, $n) - 1)
+}
+
+function Set-GameAffinity([long]$mask) {
+    $n = 0
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $GameRegex } | ForEach-Object {
+        try {
+            if ($_.ProcessorAffinity.ToInt64() -ne $mask) { $_.ProcessorAffinity = [IntPtr]$mask; $n++ }
+        } catch {}
+    }
+    return $n
+}
+
+function Enable-ECore {
+    Log "`n== E-Kern-Modus einschalten ==" Green
+    $info = $null
+    try { $info = Get-PCoreMask } catch { Bad ("Prozessor konnte nicht gelesen werden: " + $_.Exception.Message); return $false }
+    if (-not $info -or $info.Mask -eq 0) {
+        Warn "Dein Prozessor hat keine E-Kerne (alle Kerne sind gleich stark) - der Modus wird nicht gebraucht."
+        return $false
+    }
+    Log ("  Starke Kerne (P): {0} Threads | Sparkerne (E): {1} Threads" -f $info.P, $info.E) DarkGreen
+    Set-Content -Path $ECoreFlag -Value "1"
+    Install-Watcher
+    $n = Set-GameAffinity $info.Mask
+    if ($n -gt 0) { Ok "FiveM/GTA laeuft schon - sofort auf die starken Kerne gelegt." }
+    Ok "E-Kern-Modus ist an. FiveM/GTA laeuft ab jetzt automatisch nur auf den starken Kernen."
+    Log "  Discord, OBS und Windows nutzen weiter alle Kerne. Danach FPS-Test machen und vergleichen." DarkGreen
+    return $true
+}
+
+function Disable-ECore {
+    Log "`n== E-Kern-Modus ausschalten ==" Green
+    Remove-Item $ECoreFlag -Force -ErrorAction SilentlyContinue
+    [void](Set-GameAffinity (Get-AllCoreMask))
+    Remove-WatcherIfUnused
+    Ok "E-Kern-Modus ist aus. FiveM/GTA nutzt wieder alle Kerne."
 }
 
 function Start-AutoGameWatcher {
     $m = New-Object System.Threading.Mutex($false, "Global\GreenTweakAutoGame")
-    if (-not $m.WaitOne(0)) { return }
+    $got = $false
+    try { $got = $m.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $got = $true } catch {}
+    if (-not $got) { return }
+    # Alte Installation (v3.2/3.3) ohne Merker-Datei: Auto-Gaming war an
+    if (-not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag)) { try { Set-Content -Path $AutoGameFlag -Value "1" } catch {} }
     $mine = $false
+    $pmask = 0
+    try { $pmask = (Get-PCoreMask).Mask } catch {}
     while ($true) {
         try {
-            $game = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match "^FiveM|GTAProcess|^GTA5$|^GTA5_Enhanced$" }).Count -gt 0
-            if ($game -and -not $mine -and -not (Test-GameMode)) { Invoke-GameModeOn; $mine = $true }
-            elseif ((-not $game) -and $mine) {
-                if (Test-GameMode) { Invoke-GameModeOff }
-                $mine = $false
+            $wantAuto  = Test-Path $AutoGameFlag
+            $wantECore = Test-Path $ECoreFlag
+            if (-not $wantAuto -and -not $wantECore) { break }
+            $game = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $GameRegex }).Count -gt 0
+            if ($wantAuto) {
+                if ($game -and -not $mine -and -not (Test-GameMode)) { Invoke-GameModeOn; $mine = $true }
+                elseif ((-not $game) -and $mine) {
+                    if (Test-GameMode) { Invoke-GameModeOff }
+                    $mine = $false
+                }
             }
+            if ($wantECore -and $game -and $pmask -ne 0) { [void](Set-GameAffinity $pmask) }
         } catch {}
         Start-Sleep -Seconds 5
     }
+}
+
+# ------------------------------------------------------------
+#  v3.4: XMP/EXPO-Pruefung
+# ------------------------------------------------------------
+function Get-XmpStatus {
+    $r = [ordered]@{ Off = $false; Type = ""; Cur = 0; Board = ""; Steps = "" }
+    try {
+        $mem = @(Get-CimInstance Win32_PhysicalMemory)
+        if ($mem.Count -eq 0) { return [pscustomobject]$r }
+        $r.Type = switch ($mem[0].SMBIOSMemoryType) { 26 { "DDR4" } 34 { "DDR5" } default { "RAM" } }
+        $r.Cur  = [int](($mem | Measure-Object ConfiguredClockSpeed -Minimum).Minimum)
+        $r.Off  = ($r.Type -eq "DDR4" -and $r.Cur -le 2666) -or ($r.Type -eq "DDR5" -and $r.Cur -le 4800)
+    } catch {}
+    try { $r.Board = ((Get-CimInstance Win32_BaseBoard).Manufacturer + " " + (Get-CimInstance Win32_BaseBoard).Product).Trim() } catch {}
+    $b = $r.Board
+    $r.Steps = if ($b -match "ASUS") { "ASUS: F7 (Advanced Mode) > Ai Tweaker > Ai Overclock Tuner > XMP I (bzw. EXPO)" }
+        elseif ($b -match "Micro-Star|MSI") { "MSI: Oben links den Knopf 'XMP' (bzw. 'EXPO') auf Profil 1 stellen" }
+        elseif ($b -match "Gigabyte") { "Gigabyte: Tweaker > Extreme Memory Profile (X.M.P.) > Profile 1" }
+        elseif ($b -match "ASRock") { "ASRock: OC Tweaker > DRAM Configuration > Load XMP Setting > XMP Profile 1" }
+        else { "Im BIOS nach 'XMP', 'EXPO' oder 'Memory Profile' suchen und Profil 1 waehlen" }
+    return [pscustomobject]$r
 }
 
 # ============================================================
