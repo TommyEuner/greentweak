@@ -337,10 +337,14 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
           </DockPanel>
           <Canvas x:Name="FpsChart" Height="150" Margin="0,12,0,0" ClipToBounds="True"/>
         </StackPanel></Border>
-        <UniformGrid Columns="2">
+        <UniformGrid Columns="3">
           <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
             <CheckBox x:Name="AutoGameBox" Foreground="#39FF14" FontSize="15" FontWeight="Bold" Content="Auto-Gaming-Modus"/>
             <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="Startest du FiveM oder GTA, geht der Gaming-Modus von selbst an. Schließt du das Spiel, ist alles wieder wie vorher. Läuft unsichtbar im Hintergrund."/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <CheckBox x:Name="ECoreBox" Foreground="#39FF14" FontSize="15" FontWeight="Bold" Content="E-Kern-Modus"/>
+            <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0" Text="FiveM und GTA laufen nur auf den starken Kernen deines Prozessors. Discord, OBS und Windows bekommen die Sparkerne. Für Intel ab 12. Generation (z. B. i5/i7-12xxx, 13xxx, 14xxx)."/>
           </StackPanel></Border>
           <Border Style="{StaticResource CardBorder}"><StackPanel>
             <TextBlock Text="Grafikkarten-Einstellungen" Style="{StaticResource CardTitle}"/>
@@ -1129,6 +1133,7 @@ $script:LiveTimer.Add_Tick({ try { Update-LiveStats } catch {} })
 function Update-LivePage {
     $script:SettingAuto = $true
     try { (C "AutoGameBox").IsChecked = (Test-AutoGame) } catch {}
+    try { (C "ECoreBox").IsChecked = (Test-ECore) } catch {}
     $script:SettingAuto = $false
     try {
         if (-not $script:HwVendor) { $script:HwVendor = (Get-HardwareInfo).Gpu }
@@ -1143,6 +1148,11 @@ function Update-LivePage {
 
 (C "AutoGameBox").Add_Checked({ if (-not $script:SettingAuto) { Run { Enable-AutoGame } } })
 (C "AutoGameBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-AutoGame } } })
+(C "ECoreBox").Add_Checked({ if (-not $script:SettingAuto) { Run {
+    $r = @(Enable-ECore)
+    if ($r.Count -eq 0 -or -not $r[-1]) { $script:SettingAuto = $true; (C "ECoreBox").IsChecked = $false; $script:SettingAuto = $false }
+} } })
+(C "ECoreBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-ECore } } })
 
 (C "NvidiaGuide").Add_Click({ Run {
     $g = [string]$script:HwVendor
@@ -1250,6 +1260,32 @@ function New-FpsShareImage {
 }
 (C "FpsImage").Add_Click({ Run { Log "`n== Vorher/Nachher-Bild =="; New-FpsShareImage } })
 
+# --- v3.4: XMP-Hinweis beim Start ---
+$win.Add_ContentRendered({
+    try {
+        $f = Join-Path $BackupDir "xmp_hint.txt"
+        $last = if (Test-Path $f) { (Get-Content $f -Raw).Trim() } else { "" }
+        if ($last -eq "never") { return }
+        if ($last) {
+            try { if (((Get-Date) - [datetime]::ParseExact($last, "yyyy-MM-dd", $null)).TotalDays -lt 7) { return } } catch {}
+        }
+        $x = Get-XmpStatus
+        if (-not $x.Off) { return }
+        $txt = "Dein Arbeitsspeicher ($($x.Type)) läuft nur mit $($x.Cur) MT/s.`n" +
+               "Wahrscheinlich ist XMP/EXPO im BIOS aus. Das kostet in FiveM oft 10-20 % FPS.`n`n" +
+               "So schaltest du es ein:`n" +
+               "1. PC neu starten und beim Start mehrmals Entf (oder F2) drücken`n" +
+               "2. $($x.Steps)`n" +
+               "3. Mit F10 speichern und neu starten`n`n" +
+               "Mainboard: $($x.Board)`n" +
+               "(Ist dein RAM nur für $($x.Cur) MT/s gebaut, ist alles in Ordnung.)`n`n" +
+               "In ein paar Tagen wieder erinnern?"
+        $res = [Windows.MessageBox]::Show($txt, "GreenTweak - RAM läuft zu langsam", "YesNo", "Warning")
+        $val = if ("$res" -eq "No") { "never" } else { (Get-Date).ToString("yyyy-MM-dd") }
+        Set-Content -Path $f -Value $val
+    } catch {}
+})
+
 # --- Neu in dieser Version ---
 $win.Add_ContentRendered({
     try {
@@ -1258,10 +1294,11 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- Neu auf der Seite 'FiveM & GTA': Ultra-FPS (Potato)`n" +
-                   "  Dreht zusätzlich Sichtweite, Details, Kantenglättung, Wasser, Shader und VSync runter.`n" +
-                   "  Texturen bleiben. Mit 'Grafik zurücksetzen' ist alles wieder wie vorher.`n`n" +
-                   "Tipp: Danach FPS-Test an der gleichen Stelle machen und vergleichen.`n`n" +
+                   "- Neu auf der Seite 'Leistung': E-Kern-Modus`n" +
+                   "  FiveM/GTA läuft nur auf den starken Kernen, Discord und OBS auf den Sparkernen.`n" +
+                   "  Für Intel ab 12. Generation. Danach FPS-Test machen und vergleichen.`n" +
+                   "- XMP-Prüfung: GreenTweak warnt, wenn dein RAM zu langsam läuft, und zeigt dir, wie du es im BIOS einschaltest.`n" +
+                   "- Ultra-FPS (Potato) auf der Seite 'FiveM & GTA'`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
