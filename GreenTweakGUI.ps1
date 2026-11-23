@@ -352,6 +352,32 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
             <Button x:Name="NvidiaGuide" Style="{StaticResource Primary}" Content="Anleitung + Treiber öffnen" Width="260" HorizontalAlignment="Left"/>
           </StackPanel></Border>
         </UniformGrid>
+        <UniformGrid Columns="2">
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <TextBlock Text="Engpass prüfen" Style="{StaticResource CardTitle}"/>
+            <TextBlock Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,12" Text="FiveM starten, an eine typische Stelle gehen, dann hier drücken. GreenTweak misst 15 Sekunden, ob Grafikkarte oder Prozessor bremst."/>
+            <DockPanel>
+              <Button x:Name="Bottleneck" Style="{StaticResource Primary}" Content="Jetzt messen" Width="170" DockPanel.Dock="Left"/>
+              <TextBlock x:Name="EngpassText" Foreground="#39FF14" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap" Text=""/>
+            </DockPanel>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="NVIDIA-Profil automatisch" Style="{StaticResource CardTitle}"/>
+            <TextBlock Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,12" Text="Eigenes Treiber-Profil nur für FiveM/GTA: maximale Leistung, niedrige Latenz (Ultra), 10 GB Shader-Cache. Andere Spiele bleiben unverändert."/>
+            <UniformGrid Columns="2">
+              <Button x:Name="NvProfile" Style="{StaticResource Primary}" Content="Einstellen" Margin="0,0,4,0"/>
+              <Button x:Name="NvUndo" Style="{StaticResource Btn}" Content="Zurücksetzen" Margin="4,0,0,0"/>
+            </UniformGrid>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <CheckBox x:Name="MemBox" Foreground="#39FF14" FontSize="15" FontWeight="Bold" Content="RAM-Freiräumer"/>
+            <TextBlock Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,0" Text="Leert während FiveM läuft automatisch den Standby-Speicher, wenn der freie RAM knapp wird. Hilft gegen Ruckler bei langen Sessions."/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <CheckBox x:Name="TimerBox" Foreground="#39FF14" FontSize="15" FontWeight="Bold" Content="Timer-Auflösung (Windows 11)"/>
+            <TextBlock Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,0" Text="Spiele bekommen wieder den genauen Windows-Timer. Gleichmäßigere Frames und bessere 1%-Lows. Braucht einen Neustart."/>
+          </StackPanel></Border>
+        </UniformGrid>
       </StackPanel></ScrollViewer>
 
       <!-- Autostart -->
@@ -377,7 +403,25 @@ $FpsChannelUrl = "https://discord.com/channels/1564392998060433498"
       <StackPanel x:Name="PageFiveM" Grid.Row="0" Visibility="Collapsed">
         <TextBlock Text="FiveM &amp; GTA" Style="{StaticResource H1}"/>
         <TextBlock Text="Bitte GTA und FiveM vorher komplett schließen." Style="{StaticResource Sub}"/>
-        <UniformGrid Columns="3">
+        <UniformGrid Columns="4">
+          <Border Style="{StaticResource CardBorder}" BorderBrush="#39FF14"><StackPanel>
+            <TextBlock Text="FiveM starten" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Gaming-Modus an, RAM freiräumen und FiveM starten – alles mit einem Klick." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,16" Height="48"/>
+            <Button x:Name="FiveMStart" Style="{StaticResource Primary}" Content="FiveM starten"/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Shader-Cache leeren" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Hilft gegen Ruckler nach Treiber-Updates. Erster Start danach kann kurz ruckeln." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,16" Height="48"/>
+            <Button x:Name="ShaderClean" Style="{StaticResource Btn}" Content="Cache leeren"/>
+          </StackPanel></Border>
+          <Border Style="{StaticResource CardBorder}"><StackPanel>
+            <TextBlock Text="Vollbild-Optimierung" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Schaltet die Windows-Vollbild-Optimierung für FiveM/GTA aus. Etwas weniger Input-Lag." Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,8,0,16" Height="48"/>
+            <UniformGrid Columns="2">
+              <Button x:Name="FsoOff" Style="{StaticResource Primary}" Content="Aus" Margin="0,0,4,0"/>
+              <Button x:Name="FsoUndo" Style="{StaticResource Btn}" Content="Zurück" Margin="4,0,0,0"/>
+            </UniformGrid>
+          </StackPanel></Border>
           <Border Style="{StaticResource CardBorder}"><StackPanel>
             <TextBlock Text="Ultra-FPS (Potato)" Style="{StaticResource CardTitle}"/>
             <TextBlock Text="Maximale FPS: zusätzlich Sichtweite, Details, Kantenglättung, Wasser, Shader und VSync runter. Texturen bleiben." Style="{StaticResource Small}" Margin="0,8,0,16" Height="48"/>
@@ -1134,6 +1178,8 @@ function Update-LivePage {
     $script:SettingAuto = $true
     try { (C "AutoGameBox").IsChecked = (Test-AutoGame) } catch {}
     try { (C "ECoreBox").IsChecked = (Test-ECore) } catch {}
+    try { (C "MemBox").IsChecked = (Test-MemClean) } catch {}
+    try { (C "TimerBox").IsChecked = (Test-TimerRes) } catch {}
     $script:SettingAuto = $false
     try {
         if (-not $script:HwVendor) { $script:HwVendor = (Get-HardwareInfo).Gpu }
@@ -1153,6 +1199,24 @@ function Update-LivePage {
     if ($r.Count -eq 0 -or -not $r[-1]) { $script:SettingAuto = $true; (C "ECoreBox").IsChecked = $false; $script:SettingAuto = $false }
 } } })
 (C "ECoreBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-ECore } } })
+(C "MemBox").Add_Checked({ if (-not $script:SettingAuto) { Run { Enable-MemClean } } })
+(C "MemBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-MemClean } } })
+(C "TimerBox").Add_Checked({ if (-not $script:SettingAuto) { Run {
+    $r = @(Enable-TimerRes)
+    if ($r.Count -eq 0 -or -not $r[-1]) { $script:SettingAuto = $true; (C "TimerBox").IsChecked = $false; $script:SettingAuto = $false }
+} } })
+(C "TimerBox").Add_Unchecked({ if (-not $script:SettingAuto) { Run { Disable-TimerRes } } })
+(C "Bottleneck").Add_Click({ Run {
+    (C "EngpassText").Text = "Messe..."
+    $r = @(Invoke-BottleneckCheck)
+    if ($r.Count) { (C "EngpassText").Text = [string]$r[-1] }
+} })
+(C "NvProfile").Add_Click({ Run { Invoke-NvidiaProfile } })
+(C "NvUndo").Add_Click({ Run { Invoke-NvidiaProfileUndo } })
+(C "FiveMStart").Add_Click({ Run { Invoke-FiveMStart; Update-GameModeButton } })
+(C "ShaderClean").Add_Click({ Run { Invoke-ShaderCacheClean } })
+(C "FsoOff").Add_Click({ Run { Invoke-FsoOff } })
+(C "FsoUndo").Add_Click({ Run { Invoke-FsoUndo } })
 
 (C "NvidiaGuide").Add_Click({ Run {
     $g = [string]$script:HwVendor
@@ -1294,11 +1358,14 @@ $win.Add_ContentRendered({
         if ($seen -ne $Version) {
             Set-Content -Path $seenFile -Value $Version
             $txt = "Neu in GreenTweak $($Version):`n`n" +
-                   "- Neu auf der Seite 'Leistung': E-Kern-Modus`n" +
-                   "  FiveM/GTA läuft nur auf den starken Kernen, Discord und OBS auf den Sparkernen.`n" +
-                   "  Für Intel ab 12. Generation. Danach FPS-Test machen und vergleichen.`n" +
-                   "- XMP-Prüfung: GreenTweak warnt, wenn dein RAM zu langsam läuft, und zeigt dir, wie du es im BIOS einschaltest.`n" +
-                   "- Ultra-FPS (Potato) auf der Seite 'FiveM & GTA'`n`n" +
+                   "Seite 'Leistung':`n" +
+                   "- Engpass prüfen: zeigt, ob Grafikkarte oder Prozessor bremst`n" +
+                   "- NVIDIA-Profil automatisch (nur für FiveM/GTA)`n" +
+                   "- RAM-Freiräumer und Timer-Auflösung`n`n" +
+                   "Seite 'FiveM & GTA':`n" +
+                   "- FiveM starten mit einem Klick`n" +
+                   "- Shader-Cache leeren und Vollbild-Optimierung aus`n`n" +
+                   "Alles lässt sich wieder zurücksetzen.`n`n" +
                    "Viel Spaß! - Green Community"
             [Windows.MessageBox]::Show($txt, "GreenTweak - Update", "OK", "Information") | Out-Null
         }
