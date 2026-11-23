@@ -1,6 +1,3 @@
-GreenTweak 3.2
-- Neue Seite "Leistung": Grafikkarten- und Prozessor-Temperatur live, mit Warnung wenn es zu heiss wird
-- FPS-Verlauf als Diagramm (Durchschnitt und 1% Low)
-- Auto-Gaming-Modus: geht von selbst an, sobald FiveM/GTA laeuft, und danach wieder aus
-- NVIDIA/AMD: Anleitung fuer niedrige Latenz und maximale Leistung, Treiber-Fenster oeffnet sich direkt
-- FPS-Test: Vorher/Nachher-Bild zum Teilen in Discord und TikTok (wird auch direkt kopiert)
+GreenTweak 3.3
+- Neu auf der Seite "FiveM & GTA": Ultra-FPS (Potato) - dreht zusaetzlich Sichtweite, Details, Kantenglaettung, Wasser, Shader und VSync runter, Texturen bleiben
+- Mit "Grafik zuruecksetzen" ist alles wieder wie vorher
