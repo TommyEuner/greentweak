@@ -241,6 +241,10 @@ function Invoke-Undo {
     if (Test-Path $TurboFile) { Invoke-TurboOff }
     if (Test-AutoGame) { Disable-AutoGame }
     if (Test-ECore) { Disable-ECore }
+    if (Test-MemClean) { Disable-MemClean }
+    if (Test-Path $FsoFile) { Invoke-FsoUndo }
+    if (Test-Path $TimerFile) { Disable-TimerRes }
+    if (Test-Path $NvFlag) { Invoke-NvidiaProfileUndo }
     if (-not (Test-Path $BackupFile)) { Warn "Keine Sicherung gefunden - es gibt nichts rueckgaengig zu machen."; return }
     $backup = Get-Content $BackupFile -Raw | ConvertFrom-Json
 
@@ -1318,7 +1322,7 @@ function Test-WatcherTask {
 
 function Test-AutoGame {
     # Uebernahme aus v3.2/3.3: dort gab es nur die Aufgabe, keine Merker-Datei
-    if ((Test-WatcherTask) -and -not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag)) {
+    if ((Test-WatcherTask) -and -not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag) -and -not (Test-Path (Join-Path $BackupDir "memclean.on"))) {
         try { Set-Content -Path $AutoGameFlag -Value "1" } catch {}
     }
     return (Test-Path $AutoGameFlag)
@@ -1347,7 +1351,7 @@ function Install-Watcher {
 }
 
 function Remove-WatcherIfUnused {
-    if ((Test-Path $AutoGameFlag) -or (Test-Path $ECoreFlag)) { Install-Watcher; return }
+    if ((Test-Path $AutoGameFlag) -or (Test-Path $ECoreFlag) -or (Test-Path (Join-Path $BackupDir "memclean.on"))) { Install-Watcher; return }
     try { Unregister-ScheduledTask -TaskName $AutoGameTask -Confirm:$false -ErrorAction Stop } catch {}
     Stop-AutoGameProcess
     Remove-Item $AutoGameVbs -Force -ErrorAction SilentlyContinue
@@ -1465,7 +1469,8 @@ function Start-AutoGameWatcher {
     try { $got = $m.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $got = $true } catch {}
     if (-not $got) { return }
     # Alte Installation (v3.2/3.3) ohne Merker-Datei: Auto-Gaming war an
-    if (-not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag)) { try { Set-Content -Path $AutoGameFlag -Value "1" } catch {} }
+    if (-not (Test-Path $AutoGameFlag) -and -not (Test-Path $ECoreFlag) -and -not (Test-Path $MemFlag)) { try { Set-Content -Path $AutoGameFlag -Value "1" } catch {} }
+    $lastPurge = [datetime]::MinValue
     $mine = $false
     $pmask = 0
     try { $pmask = (Get-PCoreMask).Mask } catch {}
@@ -1473,7 +1478,8 @@ function Start-AutoGameWatcher {
         try {
             $wantAuto  = Test-Path $AutoGameFlag
             $wantECore = Test-Path $ECoreFlag
-            if (-not $wantAuto -and -not $wantECore) { break }
+            $wantMem   = Test-Path $MemFlag
+            if (-not $wantAuto -and -not $wantECore -and -not $wantMem) { break }
             $game = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $GameRegex }).Count -gt 0
             if ($wantAuto) {
                 if ($game -and -not $mine -and -not (Test-GameMode)) { Invoke-GameModeOn; $mine = $true }
@@ -1483,6 +1489,10 @@ function Start-AutoGameWatcher {
                 }
             }
             if ($wantECore -and $game -and $pmask -ne 0) { [void](Set-GameAffinity $pmask) }
+            if ($wantMem -and $game -and ((Get-Date) - $lastPurge).TotalSeconds -ge 60) {
+                $mi = Get-MemInfo
+                if ($mi.StandbyMB -ge 1024 -and $mi.FreeMB -lt 1024) { [void](Invoke-PurgeStandby -Quiet); $lastPurge = Get-Date }
+            }
         } catch {}
         Start-Sleep -Seconds 5
     }
@@ -1508,6 +1518,369 @@ function Get-XmpStatus {
         elseif ($b -match "ASRock") { "ASRock: OC Tweaker > DRAM Configuration > Load XMP Setting > XMP Profile 1" }
         else { "Im BIOS nach 'XMP', 'EXPO' oder 'Memory Profile' suchen und Profil 1 waehlen" }
     return [pscustomobject]$r
+}
+
+# ============================================================
+#  v3.5: Engpass, NVIDIA-Profil, Shader-Cache, Vollbild, Timer,
+#        RAM-Freiraeumer, Ein-Klick-Start
+# ============================================================
+$MemFlag   = Join-Path $BackupDir "memclean.on"
+$NvFlag    = Join-Path $BackupDir "nvprofile.on"
+$FsoFile   = Join-Path $BackupDir "fso_backup.json"
+$TimerFile = Join-Path $BackupDir "timer_backup.json"
+$NvProfileName = "GreenTweak FiveM"
+$FiveMDir  = Join-Path $env:LOCALAPPDATA "FiveM"
+
+function Test-MemClean { return (Test-Path $MemFlag) }
+
+function Pump { if (Get-Command Update-UI -ErrorAction SilentlyContinue) { Update-UI } }
+
+# ---------- RAM-Freiraeumer (Standby-Liste leeren) ----------
+function Initialize-MemType {
+    if ("GTMem" -as [type]) { return }
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class GTMem {
+    [DllImport("ntdll.dll")] static extern uint NtSetSystemInformation(int cls, ref int info, int len);
+    [DllImport("advapi32.dll", SetLastError = true)] static extern bool OpenProcessToken(IntPtr h, uint acc, out IntPtr tok);
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] static extern bool LookupPrivilegeValue(string sys, string name, out long luid);
+    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct TP { public int Count; public long Luid; public int Attr; }
+    [DllImport("advapi32.dll", SetLastError = true)] static extern bool AdjustTokenPrivileges(IntPtr tok, bool dis, ref TP n, int len, IntPtr p, IntPtr r);
+    [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    public static uint PurgeStandby() {
+        IntPtr tok;
+        if (!OpenProcessToken(GetCurrentProcess(), 0x28, out tok)) return 0xFFFFFFF1;
+        try {
+            long luid;
+            if (!LookupPrivilegeValue(null, "SeProfileSingleProcessPrivilege", out luid)) return 0xFFFFFFF2;
+            TP tp = new TP(); tp.Count = 1; tp.Luid = luid; tp.Attr = 2;
+            AdjustTokenPrivileges(tok, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+        } finally { CloseHandle(tok); }
+        int cmd = 4; // MemoryPurgeStandbyList
+        return NtSetSystemInformation(80, ref cmd, 4);
+    }
+}
+"@
+}
+
+function Get-MemInfo {
+    $m = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop
+    $standby = [double]$m.StandbyCacheNormalPriorityBytes + [double]$m.StandbyCacheReserveBytes + [double]$m.StandbyCacheCoreBytes
+    return [pscustomobject]@{ StandbyMB = [int]($standby / 1MB); FreeMB = [int]([double]$m.FreeAndZeroPageListBytes / 1MB) }
+}
+
+function Invoke-PurgeStandby([switch]$Quiet) {
+    try {
+        Initialize-MemType
+        $before = Get-MemInfo
+        $r = [GTMem]::PurgeStandby()
+        if ($r -ne 0) { if (-not $Quiet) { Warn ("RAM konnte nicht freigeraeumt werden (Code {0:X})." -f $r) }; return $false }
+        if (-not $Quiet) { Ok ("RAM freigeraeumt: {0} MB Standby-Speicher geleert." -f $before.StandbyMB) }
+        return $true
+    } catch { if (-not $Quiet) { Warn ("RAM-Freiraeumer: " + $_.Exception.Message) }; return $false }
+}
+
+function Enable-MemClean {
+    Log "`n== RAM-Freiraeumer einschalten ==" Green
+    Set-Content -Path $MemFlag -Value "1"
+    Install-Watcher
+    Ok "RAM-Freiraeumer ist an. Waehrend FiveM/GTA laeuft, wird der Standby-Speicher automatisch geleert, wenn es knapp wird."
+}
+
+function Disable-MemClean {
+    Log "`n== RAM-Freiraeumer ausschalten ==" Green
+    Remove-Item $MemFlag -Force -ErrorAction SilentlyContinue
+    Remove-WatcherIfUnused
+    Ok "RAM-Freiraeumer ist aus."
+}
+
+# ---------- Engpass-Anzeige ----------
+function Get-GpuLoad3D {
+    try {
+        $e = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction Stop |
+             Where-Object { $_.Name -like "*engtype_3D*" }
+        $sum = ($e | Measure-Object UtilizationPercentage -Sum).Sum
+        if ($null -eq $sum) { return $null }
+        return [math]::Min(100, [int]$sum)
+    } catch { return $null }
+}
+
+function Invoke-BottleneckCheck {
+    Log "`n== Engpass pruefen ==" Green
+    $game = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $GameRegex })
+    if ($game.Count -eq 0) {
+        Warn "FiveM/GTA laeuft nicht. Starte das Spiel, geh an eine typische Stelle (z. B. Stadt) und druecke dann nochmal."
+        return "Spiel starten und nochmal prüfen."
+    }
+    Log "  Messe 15 Sekunden - bitte im Spiel bleiben und normal spielen..." DarkGreen
+    $gpu = @(); $core = @(); $tot = @()
+    for ($i = 0; $i -lt 15; $i++) {
+        $g = Get-GpuLoad3D
+        if ($null -ne $g) { $gpu += $g }
+        try {
+            $p = @(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -ErrorAction Stop)
+            $core += [int](($p | Where-Object { $_.Name -ne "_Total" } | Measure-Object PercentProcessorTime -Maximum).Maximum)
+            $tot  += [int](($p | Where-Object { $_.Name -eq "_Total" }).PercentProcessorTime)
+        } catch {}
+        Pump
+        Start-Sleep -Milliseconds 700
+        Pump
+    }
+    $avgGpu  = if ($gpu.Count)  { [int](($gpu  | Measure-Object -Average).Average) } else { $null }
+    $avgCore = if ($core.Count) { [int](($core | Measure-Object -Average).Average) } else { 0 }
+    $avgTot  = if ($tot.Count)  { [int](($tot  | Measure-Object -Average).Average) } else { 0 }
+    Log ("  Grafikkarte: {0} % | staerkster Prozessorkern: {1} % | Prozessor gesamt: {2} %" -f $(if ($null -ne $avgGpu) { $avgGpu } else { "?" }), $avgCore, $avgTot) DarkGreen
+    $verdict = ""
+    if ($null -eq $avgGpu) {
+        Warn "Grafikkarten-Auslastung konnte nicht gelesen werden."
+        $verdict = "Grafikkarte nicht messbar."
+    } elseif ($avgGpu -ge 90) {
+        $verdict = "Grafikkarte am Limit ($avgGpu %)"
+        Warn "Deine GRAFIKKARTE bremst."
+        Log "  -> Hier bringen Grafik-Einstellungen am meisten: 'Ultra-FPS (Potato)', kleinere Auflösung oder Frame Scaling." DarkGreen
+    } elseif ($avgGpu -lt 60 -and $avgCore -lt 70) {
+        $verdict = "FPS-Begrenzung aktiv?"
+        Warn "Weder Grafikkarte noch Prozessor sind ausgelastet - wahrscheinlich ist eine FPS-Begrenzung an."
+        Log "  -> VSync im Spiel aus? FPS-Limit im NVIDIA/AMD-Treiber pruefen. In FiveM mit F8 und cl_drawfps true siehst du die FPS." DarkGreen
+    } elseif ($avgGpu -lt 80) {
+        $verdict = "Prozessor am Limit (GPU nur $avgGpu %)"
+        Warn "Dein PROZESSOR bremst (die Grafikkarte wartet auf ihn)."
+        Log "  -> Grafik runter bringt hier kaum etwas. Hilft: E-Kern-Modus, XMP im BIOS, Programme im Hintergrund schliessen." DarkGreen
+        Log "  -> Auf vollen Servern bremst vor allem das Spiel selbst (viele Spieler und Skripte). Den grossen Sprung bringt nur ein staerkerer Prozessor." DarkGreen
+    } else {
+        $verdict = "Ausgeglichen (GPU $avgGpu %)"
+        Ok "Grafikkarte und Prozessor sind ungefaehr gleich ausgelastet - dein PC ist ausgeglichen."
+        Log "  -> Ultra-FPS bringt noch etwas FPS, E-Kern-Modus etwas mehr Stabilitaet." DarkGreen
+    }
+    return $verdict
+}
+
+# ---------- Shader-Cache leeren ----------
+function Invoke-ShaderCacheClean {
+    Log "`n== Shader-Cache leeren ==" Green
+    if (Test-GtaRunning) { return }
+    $locLow = Join-Path (Split-Path $env:LOCALAPPDATA -Parent) "LocalLow"
+    $dirs = @(
+        (Join-Path $env:LOCALAPPDATA "NVIDIA\DXCache"),
+        (Join-Path $env:LOCALAPPDATA "NVIDIA\GLCache"),
+        (Join-Path $locLow "NVIDIA\PerDriverVersion\DXCache"),
+        (Join-Path $locLow "NVIDIA\PerDriverVersion\GLCache"),
+        (Join-Path $env:LOCALAPPDATA "D3DSCache"),
+        (Join-Path $env:LOCALAPPDATA "AMD\DxCache"),
+        (Join-Path $env:LOCALAPPDATA "AMD\DxcCache"),
+        (Join-Path $env:LOCALAPPDATA "AMD\GLCache")
+    )
+    $total = 0
+    foreach ($d in $dirs) {
+        if (-not (Test-Path $d)) { continue }
+        $size = (Get-ChildItem $d -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+        Get-ChildItem $d -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        $total += [double]$size
+        Ok ("{0} ({1} MB)" -f $d, [int]($size / 1MB))
+    }
+    if ($total -eq 0) { Ok "Kein Shader-Cache gefunden - alles sauber." }
+    else { Ok ("Insgesamt {0} MB Shader-Cache geleert." -f [int]($total / 1MB)) }
+    Log "  Hinweis: Beim ersten Start danach kann es kurz ruckeln, waehrend der Cache neu aufgebaut wird. Danach laeuft es sauberer." DarkGreen
+}
+
+# ---------- Vollbild-Optimierung aus ----------
+$FsoLayers = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+
+function Get-GameExePaths {
+    $list = @()
+    $fm = Join-Path $FiveMDir "FiveM.exe"
+    if (Test-Path $fm) { $list += $fm }
+    $sub = Join-Path $FiveMDir "FiveM.app\data\cache\subprocess"
+    if (Test-Path $sub) { $list += @(Get-ChildItem $sub -Filter "*GTAProcess*.exe" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }) }
+    $roots = @()
+    foreach ($k in @("HKLM:\SOFTWARE\WOW6432Node\Rockstar Games\Grand Theft Auto V", "HKLM:\SOFTWARE\Rockstar Games\Grand Theft Auto V")) {
+        try { $v = (Get-ItemProperty $k -ErrorAction Stop).InstallFolder; if ($v) { $roots += $v } } catch {}
+    }
+    foreach ($k in @("HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 271590", "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 3240220")) {
+        try { $v = (Get-ItemProperty $k -ErrorAction Stop).InstallLocation; if ($v) { $roots += $v } } catch {}
+    }
+    foreach ($r in $roots) {
+        foreach ($n in @("GTA5.exe", "GTA5_Enhanced.exe")) { $p = Join-Path $r $n; if (Test-Path $p) { $list += $p } }
+    }
+    return @($list | Select-Object -Unique)
+}
+
+function Invoke-FsoOff {
+    Log "`n== Vollbild-Optimierung aus (FiveM/GTA) ==" Green
+    $exes = Get-GameExePaths
+    if ($exes.Count -eq 0) { Warn "FiveM/GTA nicht gefunden. Starte FiveM einmal und versuch es dann nochmal."; return }
+    if (-not (Test-Path $FsoLayers)) { New-Item -Path $FsoLayers -Force | Out-Null }
+    $bak = @{}
+    if (Test-Path $FsoFile) { try { (Get-Content $FsoFile -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $bak[$_.Name] = $_.Value } } catch {} }
+    foreach ($e in $exes) {
+        $old = $null
+        try { $old = (Get-ItemProperty -Path $FsoLayers -Name $e -ErrorAction Stop).$e } catch {}
+        if (-not $bak.ContainsKey($e)) { $bak[$e] = if ($null -eq $old) { "__none__" } else { [string]$old } }
+        if ($old -and $old -match "DISABLEDXMAXIMIZEDWINDOWEDMODE") { Ok ("schon aus: " + (Split-Path $e -Leaf)); continue }
+        $new = if ($old) { ([string]$old).TrimEnd() + " DISABLEDXMAXIMIZEDWINDOWEDMODE" } else { "~ DISABLEDXMAXIMIZEDWINDOWEDMODE" }
+        if ($new -notmatch "^~") { $new = "~ " + $new }
+        New-ItemProperty -Path $FsoLayers -Name $e -Value $new -PropertyType String -Force | Out-Null
+        Ok (Split-Path $e -Leaf)
+    }
+    $bak | ConvertTo-Json | Set-Content -Path $FsoFile
+    Log "  Wenn FiveM neue Updates bekommt, einfach nochmal druecken (neue Spieldateien)." DarkGreen
+}
+
+function Invoke-FsoUndo {
+    Log "`n== Vollbild-Optimierung zuruecksetzen ==" Green
+    if (-not (Test-Path $FsoFile)) { Warn "Keine Sicherung gefunden - nichts zu tun."; return }
+    $bak = Get-Content $FsoFile -Raw | ConvertFrom-Json
+    foreach ($p in $bak.PSObject.Properties) {
+        if ($p.Value -eq "__none__") { Remove-ItemProperty -Path $FsoLayers -Name $p.Name -ErrorAction SilentlyContinue }
+        else { New-ItemProperty -Path $FsoLayers -Name $p.Name -Value $p.Value -PropertyType String -Force | Out-Null }
+        Ok ("zurueckgesetzt: " + (Split-Path $p.Name -Leaf))
+    }
+    Remove-Item $FsoFile -Force
+}
+
+# ---------- Timer-Aufloesung (Windows 11) ----------
+$TimerKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+function Test-TimerRes {
+    try { return ((Get-ItemProperty -Path $TimerKey -Name GlobalTimerResolutionRequests -ErrorAction Stop).GlobalTimerResolutionRequests -eq 1) } catch { return $false }
+}
+
+function Enable-TimerRes {
+    Log "`n== Timer-Aufloesung einschalten ==" Green
+    if ([Environment]::OSVersion.Version.Build -lt 22000) { Warn "Das braucht Windows 11 - bei Windows 10 ist es schon so."; return $false }
+    $old = $null
+    try { $old = (Get-ItemProperty -Path $TimerKey -Name GlobalTimerResolutionRequests -ErrorAction Stop).GlobalTimerResolutionRequests } catch {}
+    if (-not (Test-Path $TimerFile)) { @{ old = $(if ($null -eq $old) { "__none__" } else { [int]$old }) } | ConvertTo-Json | Set-Content $TimerFile }
+    New-ItemProperty -Path $TimerKey -Name GlobalTimerResolutionRequests -Value 1 -PropertyType DWord -Force | Out-Null
+    Ok "Timer-Aufloesung ist an. Bitte den PC neu starten, damit es wirkt."
+    return $true
+}
+
+function Disable-TimerRes {
+    Log "`n== Timer-Aufloesung ausschalten ==" Green
+    $old = "__none__"
+    if (Test-Path $TimerFile) { try { $old = (Get-Content $TimerFile -Raw | ConvertFrom-Json).old } catch {} }
+    if ("$old" -eq "__none__") { Remove-ItemProperty -Path $TimerKey -Name GlobalTimerResolutionRequests -ErrorAction SilentlyContinue }
+    else { New-ItemProperty -Path $TimerKey -Name GlobalTimerResolutionRequests -Value ([int]$old) -PropertyType DWord -Force | Out-Null }
+    Remove-Item $TimerFile -Force -ErrorAction SilentlyContinue
+    Ok "Timer-Aufloesung ist zurueckgesetzt. Bitte den PC neu starten."
+}
+
+# ---------- NVIDIA-Profil automatisch ----------
+$NpiDir = Join-Path $BackupDir "npi"
+$NpiUrl = "https://github.com/Orbmu2k/nvidiaProfileInspector/releases/download/v3.0.2.1/nvidiaProfileInspector.zip"
+
+function Test-Nvidia {
+    try { return [bool](@(Get-CimInstance Win32_VideoController | Where-Object { $_.Name -match "NVIDIA" }).Count) } catch { return $false }
+}
+
+function Get-Npi {
+    $exe = Get-ChildItem $NpiDir -Recurse -Filter "nvidiaProfileInspector.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { return $exe.FullName }
+    Log "  Lade NVIDIA Profile Inspector (Open Source, ca. 0,4 MB)..." DarkGreen
+    New-Item -ItemType Directory -Path $NpiDir -Force | Out-Null
+    $zip = Join-Path $NpiDir "npi.zip"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri $NpiUrl -OutFile $zip -UseBasicParsing
+    Expand-Archive -Path $zip -DestinationPath $NpiDir -Force
+    Remove-Item $zip -Force -ErrorAction SilentlyContinue
+    $exe = Get-ChildItem $NpiDir -Recurse -Filter "nvidiaProfileInspector.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exe) { throw "nvidiaProfileInspector.exe nicht gefunden." }
+    return $exe.FullName
+}
+
+function New-NipFile($path, $exes, $settings) {
+    $x = New-Object System.Text.StringBuilder
+    [void]$x.AppendLine('<?xml version="1.0" encoding="utf-16"?>')
+    [void]$x.AppendLine('<ArrayOfProfile>')
+    [void]$x.AppendLine('  <Profile>')
+    [void]$x.AppendLine("    <ProfileName>$NvProfileName</ProfileName>")
+    [void]$x.AppendLine('    <Executeables>')
+    foreach ($e in $exes) { [void]$x.AppendLine("      <string>$e</string>") }
+    [void]$x.AppendLine('    </Executeables>')
+    [void]$x.AppendLine('    <Settings>')
+    foreach ($s in $settings) {
+        [void]$x.AppendLine('      <ProfileSetting>')
+        [void]$x.AppendLine("        <SettingNameInfo>$($s[0])</SettingNameInfo>")
+        [void]$x.AppendLine("        <SettingID>$($s[1])</SettingID>")
+        [void]$x.AppendLine("        <SettingValue>$($s[2])</SettingValue>")
+        [void]$x.AppendLine('        <ValueType>Dword</ValueType>')
+        [void]$x.AppendLine('      </ProfileSetting>')
+    }
+    [void]$x.AppendLine('    </Settings>')
+    [void]$x.AppendLine('  </Profile>')
+    [void]$x.AppendLine('</ArrayOfProfile>')
+    [IO.File]::WriteAllText($path, $x.ToString(), [Text.Encoding]::Unicode)
+}
+
+function Invoke-Npi($exe, $nip, $mode) {
+    $p = Start-Process -FilePath $exe -ArgumentList @("-silentImport", $mode, ('"' + $nip + '"')) -PassThru -WindowStyle Hidden
+    if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch {}; throw "Zeitueberschreitung beim Import." }
+}
+
+function Invoke-NvidiaProfile {
+    Log "`n== NVIDIA-Profil fuer FiveM/GTA ==" Green
+    if (-not (Test-Nvidia)) { Warn "Keine NVIDIA-Grafikkarte gefunden - bei AMD bitte die Anleitung nutzen."; return }
+    if (Test-GtaRunning) { return }
+    $names = @("fivem.exe")
+    $sub = Join-Path $FiveMDir "FiveM.app\data\cache\subprocess"
+    if (Test-Path $sub) { $names += @(Get-ChildItem $sub -Filter "*GTAProcess*.exe" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name.ToLower() }) }
+    $names = @($names | Select-Object -Unique)
+    if ($names.Count -lt 2) { Warn "Noch keine FiveM-Spieldatei gefunden. Starte FiveM einmal (bis ins Menue) und druecke dann nochmal." }
+    $settings = @(
+        @("Power Management - Mode: Prefer maximum performance", 274197361, 1),
+        @("Ultra Low Latency - CPL State: Ultra", 390467, 2),
+        @("Ultra Low Latency - Enabled: On", 277041152, 1),
+        @("Maximum Pre-Rendered Frames: 1", 8102046, 1),
+        @("Shader Cache - Cache Size: 10GB", 11306135, 10240),
+        @("Texture Filtering - Quality: High performance", 13510289, 20)
+    )
+    try {
+        $npi = Get-Npi
+        $nip = Join-Path $BackupDir "greentweak_fivem.nip"
+        New-NipFile $nip $names $settings
+        Invoke-Npi $npi $nip "-mergeImport"
+        Set-Content -Path $NvFlag -Value ($names -join ",")
+        Ok ("Eigenes NVIDIA-Profil '$NvProfileName' fuer: " + ($names -join ", "))
+        Ok "Energieverwaltung: Maximale Leistung"
+        Ok "Niedriger Latenzmodus: Ultra"
+        Ok "Shader-Cache: 10 GB"
+        Ok "Texturfilterung: Hohe Leistung"
+        Log "  Gilt nur fuer FiveM/GTA - dein PC und andere Spiele bleiben wie vorher." DarkGreen
+        Log "  Nach einem FiveM-Update (neue Spieldatei) einfach nochmal druecken." DarkGreen
+    } catch {
+        Bad ("NVIDIA-Profil: " + $_.Exception.Message)
+        Log "  Alternative: Knopf 'Anleitung + Treiber oeffnen' und von Hand einstellen." DarkGreen
+    }
+}
+
+function Invoke-NvidiaProfileUndo {
+    Log "`n== NVIDIA-Profil zuruecksetzen ==" Green
+    if (-not (Test-Path $NvFlag)) { Warn "GreenTweak hat kein NVIDIA-Profil angelegt - nichts zu tun."; return }
+    try {
+        $npi = Get-Npi
+        $nip = Join-Path $BackupDir "greentweak_fivem_leer.nip"
+        New-NipFile $nip @() @()
+        Invoke-Npi $npi $nip "-replaceImport"
+        Remove-Item $NvFlag -Force -ErrorAction SilentlyContinue
+        Ok "Profil '$NvProfileName' ist geleert - FiveM/GTA nutzt wieder die normalen Treiber-Einstellungen."
+    } catch { Bad ("NVIDIA-Profil: " + $_.Exception.Message) }
+}
+
+# ---------- Ein-Klick FiveM-Start ----------
+function Invoke-FiveMStart {
+    Log "`n== FiveM starten (alles an) ==" Green
+    $fm = Join-Path $FiveMDir "FiveM.exe"
+    if (-not (Test-Path $fm)) { Warn "FiveM wurde nicht gefunden ($fm)."; return }
+    if (@(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match $GameRegex }).Count -gt 0) { Warn "FiveM/GTA laeuft schon."; return }
+    if (-not (Test-GameMode)) { Invoke-GameModeOn } else { Ok "Gaming-Modus ist schon an." }
+    [void](Invoke-PurgeStandby)
+    if (Test-ECore) { Ok "E-Kern-Modus ist an - FiveM kommt automatisch auf die starken Kerne." }
+    if (Test-MemClean) { Ok "RAM-Freiraeumer ist an - laeuft im Hintergrund mit." }
+    Start-Process -FilePath $fm
+    Ok "FiveM startet. Viel Spass!"
+    Log "  Tipp: Nach dem Spielen 'Gaming-Modus AUS' druecken (oder Auto-Gaming einschalten, dann geht das von selbst)." DarkGreen
 }
 
 # ============================================================
