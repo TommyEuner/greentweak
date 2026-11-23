@@ -1,3 +1,4 @@
-GreenTweak 3.3
-- Neu auf der Seite "FiveM & GTA": Ultra-FPS (Potato) - dreht zusaetzlich Sichtweite, Details, Kantenglaettung, Wasser, Shader und VSync runter, Texturen bleiben
-- Mit "Grafik zuruecksetzen" ist alles wieder wie vorher
+GreenTweak 3.4
+- Neu auf der Seite "Leistung": E-Kern-Modus - FiveM/GTA laeuft nur auf den starken Kernen, Discord/OBS/Windows auf den Sparkernen (Intel ab 12. Generation)
+- XMP-Pruefung beim Start: Warnung, wenn der RAM zu langsam laeuft, mit Anleitung fuers BIOS
+- Systemcheck zeigt den XMP-Weg passend zu deinem Mainboard
