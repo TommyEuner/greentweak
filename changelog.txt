@@ -1,4 +1,6 @@
-GreenTweak 3.4
-- Neu auf der Seite "Leistung": E-Kern-Modus - FiveM/GTA laeuft nur auf den starken Kernen, Discord/OBS/Windows auf den Sparkernen (Intel ab 12. Generation)
-- XMP-Pruefung beim Start: Warnung, wenn der RAM zu langsam laeuft, mit Anleitung fuers BIOS
-- Systemcheck zeigt den XMP-Weg passend zu deinem Mainboard
+GreenTweak 3.5
+- Seite Leistung: Engpass pruefen (zeigt, ob Grafikkarte oder Prozessor bremst)
+- Seite Leistung: NVIDIA-Profil automatisch nur fuer FiveM/GTA (max. Leistung, Low Latency Ultra, 10 GB Shader-Cache)
+- Seite Leistung: RAM-Freiraeumer und Timer-Aufloesung (Windows 11)
+- Seite FiveM & GTA: FiveM starten mit einem Klick, Shader-Cache leeren, Vollbild-Optimierung aus
+- Alles laesst sich zuruecksetzen, auch ueber 'Alles rueckgaengig'
